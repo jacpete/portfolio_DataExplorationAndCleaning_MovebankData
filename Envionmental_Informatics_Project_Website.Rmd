@@ -1,0 +1,1023 @@
+---
+title: "Exploring MoveBank data and the movement characteristics of barnacle geese"
+author: "Jacob Peterson"
+date: "2020-02-12"
+slug: exploring-movebank-barnacle-geese
+categories: 
+  - R
+tags:
+  - R
+  - Data Management
+  - Exploratory Analysis
+
+subtitle: ''
+summary: 'This is my quick summary'
+authors: []
+lastmod: '2020-02-05T23:41:25-06:00'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects: []
+draft: true
+output:
+  blogdown::html_page:
+    toc: yes
+    
+bibliography: dataReferences.bib
+csl: ecosphere-doi.csl
+urlcolor: blue
+
+---
+
+```{r Initial-Script-Description, eval=FALSE, echo = FALSE}
+# File Description: This original purpose of this file is to have a centralized
+# place to perform the all project analysis for my ABE 651 final project and
+# create a pdf output document that details the steps taken and a summary of the
+# data and its analysis.
+```
+
+```{r Rmarkdown-Global-Options, include=FALSE}
+# Sets the main options for the code to not echo the code chucks into the main R
+# markdown document
+knitr::opts_chunk$set(echo = FALSE)
+options(knitr.duplicate.label = 'allow')
+
+#Should the Appenix be outputted?
+includeAppendix <- TRUE
+```
+
+```{r Load-Package Libraries, include=FALSE, warning=FALSE}
+#All downloaded from CRAN unless noted
+library(tidyverse) #general data handling
+library(lubridate) #working with dates
+library(sf) #spatial data package
+library(sp) #spatial data package
+library(adehabitatLT) #create tracts for distance and turning angles
+library(rworldmap) #get country polygons
+library(rworldxtra) #get country polygons
+library(tmap) #spatial mapping package
+library(tmaptools) #spatial mapping package
+# devtools::install_github("jacpete/jpfxns2")
+library(jpfxns2) #personal package with a couple useful fxns
+library(gridExtra) #allows grid.arrange to do a multiplot figure
+library(grid) #allows plotting of grid.arrage object
+library(captioner) #makes more adaptable captions
+library(FNN) # for fast KNN between points
+library(knitr) # for Rmarkdown support
+library(adehabitatHR) # to create home ranges
+```
+
+```{r Setup-Caption-Prefixes, include=FALSE}
+figNum <- captioner(prefix="Fig.")
+TabNum <- captioner(prefix="Table")
+```
+
+```{r Load-Base-Data, message=FALSE}
+# load in base data files
+dataGreenland <-
+  readr::read_csv("data/MigrationBarnacleGeese_Greenland_2014ori.csv",
+                  col_types = cols(`individual-local-identifier` = "c")) %>%
+    mutate(studyArea = "Greenland")
+dataSvalbard <-
+  readr::read_csv("data/MigrationBarnacleGeese_Svalbard_2014ori.csv",
+                  col_types = cols(`individual-local-identifier` = "c")) %>%
+  mutate(studyArea = "Svalbard")
+dataBarentsSea <-
+  readr::read_csv("data/MigrationBarnacleGeese_BarentsSea_2014ori.csv",
+                  col_types = cols(`individual-local-identifier` = "c")) %>%  
+    mutate(studyArea = "Barents Sea")
+```
+
+```{r Combine-Data, include=FALSE, results='hide'}
+# Check that data has the same number of columns
+ncol(dataBarentsSea) #13
+ncol(dataGreenland) #12
+ncol(dataSvalbard) #13
+
+# What data is in all dataframes
+dataInAll <- names(dataBarentsSea) %>%
+  .[(. %in% names(dataSvalbard))] %>%
+  .[(. %in% names(dataGreenland))]
+
+# What data is extra in the other dataframes?
+dataMissingLst <- map(list(dataBarentsSea, dataGreenland, dataSvalbard),
+                             ~ names(.x)[!(names(.x) %in% dataInAll)])
+
+dataMissingUnique <- unique(do.call(c, dataMissingLst))
+
+dataFull <- bind_rows(dataBarentsSea, dataGreenland, dataSvalbard)
+
+```
+
+```{r Create-Spatial-Data, warning=FALSE}
+# Convert to Spatial Data witht the same coordinate system (lat long WGS1984)
+sfBarentsSea <- st_as_sf(x = dataBarentsSea,
+                         coords = c('location-long','location-lat'),
+                         remove = FALSE, crs = 4326)
+sfGreenland <- st_as_sf(x = dataGreenland,
+                        coords = c('location-long','location-lat'),
+                         remove = FALSE, crs = 4326)
+sfSvalbard <- st_as_sf(x = dataSvalbard,
+                       coords = c('location-long','location-lat'),
+                         remove = FALSE, crs = 4326)
+sfFull <- st_as_sf(x = dataFull,
+                   coords = c('location-long','location-lat'),
+                         remove = FALSE, crs = 4326)
+# load in world map with the same projection
+worldMap <- getMap(resolution = "high") %>% st_as_sf() %>%
+  st_transform(crs = 4326)
+
+```
+
+```{r Add-time-period-columns}
+dataFull <- dataFull %>%
+  mutate(month = month(timestamp, label = TRUE),
+         year = year(timestamp),
+         monthFloor = floor_date(timestamp, "month"),
+         yearFloor = floor_date(timestamp, "year"))
+
+```
+
+```{r Add-time-difference-column-in-hours, results='hide'}
+###Add diff time column
+dataFull <- dataFull %>% pull(`individual-local-identifier`) %>% unique %>%
+  map(~{
+    indiv <- dataFull %>% filter(`individual-local-identifier` == .x)
+    indiv <- arrange(indiv, timestamp)
+    indiv$hours <- append(lubridate::int_diff(indiv$timestamp)@.Data/(60*60),NA)
+    indiv
+  }) %>% bind_rows()
+
+# Update sfFull to include the new columns
+sfFull <- st_as_sf(x = dataFull, coords = c('location-long','location-lat'),
+                         remove = FALSE, crs = 4326)
+```
+
+```{r Add-step-length-columns, warning=F}
+###Create and add track details to the full datasets
+
+# Create xy columns in meters using the North Pole Azimuthal Equidistant
+#  transformation
+sfFullEurope <- sfFull %>% st_transform(crs = 102016) %>%
+  jpfxns2::sf_XYtoCols(.)
+
+# Create and add trajectory details between steps to the data
+sfFullEurope <-
+  adehabitatLT::as.ltraj(xy = st_coordinates(sfFullEurope),      
+                         date = dataFull$timestamp,
+                         id = factor(sfFullEurope$`individual-local-identifier`),
+                         typeII = TRUE) %>%
+  map(.f = ~ {   # add id to trajectory data
+    .x$id = attr(.x, "id")
+    .x
+  }) %>%
+  bind_rows() %>%  # bind trajectory data back together
+  left_join(sfFullEurope, ., by = c("x" = "x", "y" = "y",  #join trajectory data
+                                    "timestamp" = "date",  #  back to the
+                                                           #  original data
+                                    "individual-local-identifier" = "id")) %>%
+  mutate(dist_hour = dist / hours)
+
+#add new data back to dataframe for general use
+dataFull <- sfFullEurope %>% st_set_geometry(NULL)
+
+```
+
+# Document Overview:
+This document was originally used to create my final project for the ABE 651 (*Environmental Informatics*) class I took while at Purdue University.
+I am now repurposing it to use as an example in my data science portfolio I am putting together to host on my [Github](https://github.com/jacpete//).  
+
+The purpose of this class project was meant to demonstrate our ability to find and manage a publicly available dataset, perform exploratory graphical analysis, run a data quality checking sequence, and perform a simple statistical analysis on the data.
+The project was meant to be open ended so that students could use data they had specific interests in and I chose to explore animal movement data from the data repository site [MoveBank](https://www.datarepository.movebank.org/).  
+
+A repository with the data and code used to create this pdf can be found [here](https://github.com/jacpete/portfolio_DataExplorationAndCleaning_MovebankData//).
+
+
+# Abstract
+
+With this project, I explored the offerings of an animal movement data repository and created a Rmarkdown document that contained the code used to clean, format, and explore the data available at [MoveBank](https://www.datarepository.movebank.org/).
+I chose to use data depicting movements of barnacle geese in Northern Europe and the North Atlantic within three separate sub-populations.
+With this data, I examined the regional differences in displacement between the summer and winter ranges as well as differences in summer home range size using one-way ANOVA's.
+Using post-hoc Tukey tests, I discovered that there was a significant difference in seasonal displacement between the Barents Sea and Greenland sub-populations.
+However, there was no significant variation between summer home range size in the sub-populations.
+
+\
+
+# Dataset Description:
+__*Dataset Source*__  
+
+The data was downloaded from [MoveBank](https://www.datarepository.movebank.org/) and consists of movement data of `r length(unique(dataFull$'individual-local-identifier'))` barnacle geese (*Branta leucopsis*) individuals in Northern Europe from `r format(min(dataFull$timestamp), "%B %Y")` to `r format(max(dataFull$timestamp), "%B %Y")`.
+This included data from three specific study regions in Greenland, Svalbard, and Barents Sea [@dataGreenland; @dataBarentsSea; @dataSvalbard].
+In total, there were `r formatC(nrow(dataFull), format="f", big.mark=",", digits = 0)` total records spread among `r length(unique(dataFull$"individual-local-identifier"))` individuals.
+This data was originally collected for and used in two other published studies [@Kolzsch2015; @Shariatinajafabadi2014].
+However, it is not likely that all the possible questions have been asked using the dataset.
+Open access datasets like these present opportunities to answer new ecological questions with existing datasets.
+
+\
+
+__*Dataset Format and Metadata*__  
+
+This data was downloaded in csv format and includes the following data:  
+
+|     *Useful data included in all study regions as part of the original datasets:*
+
+*     `event-id` unique identifier for each movement event
+*     `timestamp` the date and time the event was recorded in UTC
+*     `location-long` longitude in decimal degrees (Datum: WGS84)
+*     `location-lat` latitude in decimal degrees (Datum: WGS84)
+*     `individual-local-identifier` unique identifier for individual
+
+|     *Created as part of exploratory analysis using existing variables:*
+
+*     `hours` hours between timesteps
+*     `dist` distance traveled during a timestep (in meters)
+*     `dist_hour` distance traveled divided by the hours between timesteps (m/hr)
+*     `month` month data was collected in
+*     `year` year data was collected in
+*     `monthFloor` month and year combination that the data was collected in
+
+
+\
+
+# Graphical Analysis:
+__*Graphical Analysis Methods*__  
+
+As not a lot of information was included in the original data set, I created a few new columns for the dataset as noted in the list above.
+This included splitting the data into movement tracts for each individual and calculating time per step and distance moved per step, as well as splitting the data up into different time periods for ease during graphical analysis.
+First,  I identified the distribution of individuals across the study regions (This is a \hyperlink{Plot-Individuals-Per-Study-Region}{{\color{blue}{\underline{`r figNum("Plot-Individuals-Per-Study-Region", display = "cite")`}}}}).
+I then mapped the points to see where exactly the birds from the different study regions were located and look for spatial outliers (\hyperlink{Plot-Spatial-Map}{{\color{blue}{\underline{`r figNum("Plot-Spatial-Map", display = "cite")`}}}}). Next I explored the distribution of movement records among individuals and study regions (\hyperlink{Plot-Individual-Point-Distribution}{{\color{blue}{\underline{`r figNum("Plot-Individual-Point-Distribution", display = "cite")`}}}}). This would help identify individuals that had a lot less relocations as well as the variation in the number of relocations gathered between study regions.
+I also plotted the distribution of the amount of time between consecutive points for each individual (\hyperlink{Plot-Time-Between-Points-Indiv}{{\color{blue}{\underline{`r figNum("Plot-Time-Between-Points-Indiv", display = "cite")`}}}}). Large gaps in time between successive points would make the data less useful and such gaps should be removed in further analyses.
+I was hoping to get fairly continuous data of year round movement in order to calculate both summer and winter home range sizes and estimate differences in step length during migration and within home ranges.
+To check for this, I used boxplots to plot the standardized distance over time by each month in the entire time series (\hyperlink{Plot-Dist-Traveled-Over-Time}{{\color{blue}{\underline{`r figNum("Plot-Dist-Traveled-Over-Time", display = "cite")`}}}}).
+This not only helped identify possible variability at certain times of the year, but also time periods that only had data from certain study areas.
+The patterns identifying the distribution of points across time and study regions were summarized best in the final two graphs that plot the count of points occurring in the years of the study and across individual months (Figs. \hyperlink{Count-of-points-per-year}{{\color{blue}{\underline{`r figNum("Count-of-points-per-year", display = "num")`}}}} and \hyperlink{Count-of-points-per-month}{{\color{blue}{\underline{`r figNum("Count-of-points-per-month", display = "num")`}}}} respectively).
+Because there is a noticeable lack of points recorded during the winter months (\hyperlink{Count-of-points-per-month}{{\color{blue}{\underline{`r figNum("Count-of-points-per-month", display = "cite")`}}}}), I will only be estimating home ranges in the summer breeding months.
+
+\
+\
+
+
+
+\newpage
+\hypertarget{Plot-Individuals-Per-Study-Region}{{\color{blue}{}}}
+```{r Plot-Individuals-Per-Study-Region, warning=F, results='hide', fig.align='center'}
+#Add palatte with colorblind friendly colors
+cbColors <- c("#E69F00", "#009E73", "#0072B2")
+
+# make bar plot representing individual per study area
+dataFull %>% group_by(studyArea) %>% # group by study area and summarise
+  summarise(Individuals = length(unique(`individual-local-identifier`))) %>%
+  ggplot(data = ., mapping = aes(x = studyArea,
+                                 y = Individuals,
+                                 fill = factor(studyArea))) +
+  geom_bar(stat = "identity") +
+  xlab("Study Area") + ggtitle("Count of Individuals Among Study Regions") +
+  theme(panel.grid.major.y =                        # keep horizontal guidelines
+          element_line(colour = "black",size=0.2),
+        panel.grid.major.x = element_blank(),       
+        panel.grid.minor.y = element_line(colour = "black"),
+        panel.background = element_blank())  +
+  theme(panel.border =                                # create black plot border
+          element_rect(colour = "black", fill=NA, size=.5),
+        axis.line = element_line(colour = "black", size = 1)) +
+  scale_fill_manual(values=cbColors) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+    guides(fill=guide_legend(title="Study Area"))
+```
+
+```{r, echo=FALSE, results="asis"}
+jpfxns2::adaptiveCenterCaption(chunckName="Plot-Individuals-Per-Study-Region",
+                               caption = "Distribution of individuals among \
+                               study regions", capFxn = "figNum")
+```
+
+\newpage
+\hypertarget{Plot-Spatial-Map}{{\color{blue}{}}}
+```{r Plot-Spatial-Map, warning=FALSE, message=FALSE, fig.align='center', cache=TRUE}
+#Plot map of locations of movements by sub-population
+distMap <- tm_shape(worldMap, bbox = bb(sfFull, width = 1.7,
+                                        height = 1.25, relative = T)) +
+  tm_borders(col = "black") + tm_fill(col = "white") +
+  tm_shape(sfFull) +
+  tm_bubbles(col = "studyArea", shape = 3, size = .1,
+             palette = cbColors,
+             title.col = "Study Area") +
+  tm_layout(bg.color = "#a6cee3") +
+  # tm_xlab("Longitude") +
+  # tm_ylab("Latitude") +
+  tm_layout(main.title = "Distribution of Movement Data",
+            main.title.position = "center",
+            legend.position = c(0.7, 0.27),
+            legend.frame = TRUE,
+            legend.bg.color = "#fcefd2") +
+  tm_compass(type = "arrow", position = c(0.165, 0.15)) +
+  tm_scale_bar(breaks = c(0,500,1000,1500), text.size = .8, position = c(0.09,0.0))
+# breaks = c(0,500,1000,1500),
+distMap
+```
+
+```{r, echo=FALSE, results="asis"}
+jpfxns2::adaptiveCenterCaption(chunckName="Plot-Spatial-Map",
+                               caption = "Distribution of movement data across \
+                               all study regions", capFxn = "figNum")
+```
+
+\newpage
+\hypertarget{Plot-Individual-Point-Distribution}{{\color{blue}{}}}
+```{r Plot-Individual-Point-Distribution, warning=F, fig.align='center'}
+# bar plot of number of points per individual with a factor of study area
+dataFull %>% group_by(`individual-local-identifier`, studyArea) %>%
+  summarise(indivCount = n()) %>%
+  ggplot(data = ., aes(x = `individual-local-identifier`, y = indivCount,
+                       fill = factor(studyArea))) +
+  geom_bar(stat = "identity") +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  ylab("Count of Relocations") + xlab("Individual ID")  +
+  ggtitle("Count of Points Among Individuals") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  guides(fill=guide_legend(title="Study Area")) +
+  theme(panel.grid.major.y =                        # keep horizontal guidelines
+          element_line(colour = "black",size=0.2),
+        panel.grid.major.x = element_blank(),       
+        panel.grid.minor.y = element_line(colour = "black"),
+        panel.background = element_blank())  +
+  theme(panel.border =                                # create black plot border
+          element_rect(colour = "black", fill=NA, size=.5),
+        axis.line = element_line(colour = "black", size = 1)) +
+  scale_fill_manual(values=cbColors)
+```
+
+```{r, echo=FALSE, results="asis"}
+jpfxns2::adaptiveCenterCaption(chunckName="Plot-Individual-Point-Distribution",
+                               caption = "Distribution of movement relocations \
+                               among individuals and study regions",
+                               capFxn = "figNum")
+```
+
+\newpage
+\hypertarget{Plot-Time-Between-Points-Indiv}{{\color{blue}{}}}
+```{r Plot-Time-Between-Points-Indiv, warning=FALSE, fig.height=6, fig.align='center'}
+# distribution of length of time we have on bird data by individuals
+plot1 <- ggplot(data = dataFull[!is.na(dataFull$hours), ],
+       mapping = aes(x = factor(`individual-local-identifier`), y = hours,
+                     col = factor(studyArea))) +
+  geom_boxplot(outlier.size = 0.5) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  xlab("") + ylab("Hours Between Points") +
+  ggtitle("Distribution of Hours between GPS Points Among Individuals") +
+  theme(panel.grid.major.y =                        # keep horizontal guidelines
+          element_line(colour = "black",size=0.2),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.background = element_blank())  +
+  theme(panel.border =                                # create black plot border
+          element_rect(colour = "black", fill=NA, size=.5),
+        axis.line = element_line(colour = "black", size = 1)) +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  scale_colour_manual(values=cbColors) + # change to colorbline friendly palatte
+  guides(col=guide_legend(title="Study Area"))
+
+# distribution of length of time we have on bird data by individuals zoomed in
+plot2 <- ggplot(data = dataFull[!is.na(dataFull$hours), ],
+       mapping = aes(x = factor(`individual-local-identifier`), y = hours,
+                     col = factor(studyArea))) +
+  geom_boxplot(outlier.size = 0.5) +
+  coord_cartesian(ylim=c(0, 35)) +
+  theme(axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)) +
+  theme(panel.grid.major.y =                        # keep horizontal guidelines
+          element_line(colour = "black",size=0.2),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.background = element_blank())  +
+  theme(panel.border =                                # create black plot border
+          element_rect(colour = "black", fill=NA, size=.5),
+        axis.line = element_line(colour = "black", size = 1)) +
+  scale_colour_manual(values=cbColors) + # change to colorbline friendly palatte
+  xlab("Individual ID") + ylab("Hours Between Points") +
+  ggtitle("(Zoomed in to See Main Distribution of Boxplots)") +
+  theme(plot.title = element_text(hjust = 0.5, size = 10)) +
+  guides(col=guide_legend(title="Study Area"))
+
+mainPlot <- arrangeGrob(plot1, plot2)
+grid.newpage()
+grid.draw(mainPlot)
+```
+
+```{r, echo=FALSE, results="asis"}
+jpfxns2::adaptiveCenterCaption(chunckName="Plot-Time-Between-Points-Indiv",
+                               caption = "Distribution of the length of time \
+                               between successive relocations on bird data by \
+                               individuals and study regions",
+                               capFxn = "figNum")
+```
+
+\newpage
+\hypertarget{Plot-Dist-Traveled-Over-Time}{{\color{blue}{}}}
+```{r Plot-Dist-Traveled-Over-Time, warning=FALSE, fig.height=6, fig.align='center'}
+# Plot the distance traveled among months seperated by the study regions
+
+# ggplot(dataFull, aes(x = factor(monthFloor), y = dist_hour,
+#                      col = factor(studyArea))) +
+#   geom_boxplot() + coord_cartesian(ylim=c(0, 2000)) +
+#   theme(axis.text.x = element_text(angle = 90, hjust = 1)) +
+#   xlab("Year") + ylab("Distance Over Time (m/hr)") +
+#   ggtitle("Distribution of Distance Traveled between GPS Points Among Months
+#   (Zoomed in to See Detail)") +
+#   theme(plot.title = element_text(hjust = 0.5)) +
+#   guides(col=guide_legend(title="Study Area"))
+
+# The above plot was really wide so I split it into 2 to see more information
+halfLength <- floor(length(unique(dataFull$monthFloor))/2)
+fullLength <- length(unique(dataFull$monthFloor))
+dataFirstset <- dataFull %>%
+  filter(monthFloor %in% sort(unique(dataFull$monthFloor))[1:halfLength])
+dataSecondset <- dataFull %>%
+  filter(monthFloor %in%
+           sort(unique(dataFull$monthFloor))[(halfLength + 1):fullLength])
+
+#Plot the two seperated plots
+plot1 <- ggplot(dataFirstset, aes(x = factor(monthFloor), y = dist_hour,
+                                  col = factor(studyArea))) +
+  geom_boxplot(outlier.size = 0.5) + coord_cartesian(ylim=c(0, 3000)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(panel.grid.major.y =                        # keep horizontal guidelines
+          element_line(colour = "black",size=0.2),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.background = element_blank())  +
+  theme(panel.border =                                # create black plot border
+          element_rect(colour = "black", fill=NA, size=.5),
+        axis.line = element_line(colour = "black", size = 1)) +
+  scale_colour_manual(values=cbColors) + # change to colorbline friendly palatte
+  xlab("") + ylab("Distance Over Time (m/hr)") +
+  ggtitle("Distribution of Distance Traveled between GPS Points Among Months
+          (Zoomed in to See Main Distributions)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  guides(col=guide_legend(title="Study Area"))
+
+plot2 <- ggplot(dataSecondset, aes(x = factor(monthFloor), y = dist_hour,
+                                   col = factor(studyArea))) +
+  geom_boxplot(outlier.size = 0.5) + coord_cartesian(ylim=c(0, 3000)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(panel.grid.major.y =                        # keep horizontal guidelines
+          element_line(colour = "black",size=0.2),
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.y = element_blank(),
+        panel.background = element_blank())  +
+  theme(panel.border =                                # create black plot border
+          element_rect(colour = "black", fill=NA, size=.5),
+        axis.line = element_line(colour = "black", size = 1)) +
+  scale_colour_manual(values=cbColors) + # change to colorbline friendly palatte
+  xlab("Month") + ylab("Distance Over Time (m/hr)") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+  guides(col=guide_legend(title="Study Area"))
+
+mainPlot <- arrangeGrob(plot1, plot2, heights = unit(c(0.53,0.47), "npc"))
+grid.newpage()
+grid.draw(mainPlot)
+
+```
+
+```{r, echo=FALSE, results="asis"}
+jpfxns2::adaptiveCenterCaption(chunckName="Plot-Dist-Traveled-Over-Time",
+                               caption = "Distribution of distance traveled, \
+                               standardized by an hour, during each movement \
+                               across time", capFxn = "figNum")
+```
+
+\newpage
+\hypertarget{Count-of-points-per-year}{{\color{blue}{}}}
+```{r Count-of-points-per-year, echo=FALSE, warning=F, message=FALSE, fig.align='center'}
+# Distribution of Points among years with study area as a factor
+
+#First to make sure all year-studyArea combinations are represented by
+# at least an NA
+dataYearSum <- dataFull %>%
+  mutate(year = factor(year),
+         studyArea = factor(studyArea)) %>%
+  group_by(year, studyArea) %>% summarise(n = n()) %>%
+  ungroup()
+
+tidyr::expand_grid(year = levels(dataYearSum$year),
+            studyArea=levels(dataYearSum$studyArea)) %>%
+  dplyr::anti_join(.,dplyr::select(dataYearSum, year, studyArea)) %>%
+  mutate(n = NA) %>%
+  full_join(dataYearSum, .) %>%
+  mutate(year = ordered(year, levels(dataYearSum$year)),
+         studyArea = factor(studyArea)) %>%
+  arrange(year, studyArea) %>%
+
+  #Then plot the data
+  ggplot(., aes(x = year, y = n, fill = studyArea)) +
+  geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1.3, vjust = 1.2)) +
+  theme(panel.grid.major.y =                        # keep horizontal guidelines
+          element_line(colour = "black",size=0.2),
+        panel.grid.major.x = element_blank(),       
+        panel.grid.minor.y = element_line(colour = "black"),
+        panel.background = element_blank())  +
+  theme(panel.border =                                # create black plot border
+          element_rect(colour = "black", fill=NA, size=.5),
+        axis.line = element_line(colour = "black", size = 1)) +
+  scale_fill_manual(values=cbColors) +
+  xlab("Year") + ylab("Count of Relocations") +
+  ggtitle("Distribution of Points Among Years") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+    guides(fill=guide_legend(title="Study Area"))
+
+```
+
+```{r, echo=FALSE, results="asis"}
+jpfxns2::adaptiveCenterCaption(chunckName="Count-of-points-per-year",
+                               caption = "Count of points occurring in the \
+                               different years of the studies",
+                               capFxn = "figNum")
+```
+
+\newpage
+\hypertarget{Count-of-points-per-month}{{\color{blue}{}}}
+```{r Count-of-points-per-month, echo=FALSE, warning=F, message=FALSE, fig.align='center'}
+
+#First to make sure all month-studyArea combinations are represented by
+#  at least an NA
+dataMonthSum <- dataFull %>%
+  mutate(month = factor(month),
+         studyArea = factor(studyArea)) %>%
+  group_by(month, studyArea) %>% summarise(n = n()) %>%
+  ungroup()
+
+tidyr::expand_grid(month = levels(dataMonthSum$month),
+            studyArea=levels(dataMonthSum$studyArea)) %>%
+  dplyr::anti_join(.,dplyr::select(dataMonthSum, month, studyArea)) %>%
+  mutate(n = NA) %>%
+  full_join(dataMonthSum, .) %>%
+  mutate(month = ordered(month, levels(dataMonthSum$month)),
+         studyArea = factor(studyArea)) %>%
+  arrange(month, studyArea) %>%
+
+  #Then plot the data
+  ggplot(., aes(x = month, fill = studyArea, y = n)) +
+  geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
+  theme(panel.grid.major.y =                        # keep horizontal guidelines
+          element_line(colour = "black",size=0.2),
+        panel.grid.major.x = element_blank(),       
+        panel.grid.minor.y = element_line(colour = "black"),
+        panel.background = element_blank())  +
+  theme(panel.border =                                # create black plot border
+          element_rect(colour = "black", fill=NA, size=.5),
+        axis.line = element_line(colour = "black", size = 1)) +
+  scale_fill_manual(values=cbColors) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1.3, vjust = 1.2)) +
+  xlab("Month") + ylab("Count of Relocations") +
+  ggtitle("Distribution of Points Among Months") +
+  theme(plot.title = element_text(hjust = 0.5)) +
+    guides(fill=guide_legend(title="Study Area"))
+
+
+```
+
+```{r, echo=FALSE, results="asis"}
+jpfxns2::adaptiveCenterCaption(chunckName="Count-of-points-per-month",
+                               caption = "Count of points occurring in the \
+                               different months of the year", capFxn = "figNum")
+```
+
+
+
+
+
+# Data Quality Checking
+__*Data Quality Checking Methods*__  
+
+
+```{r Check-for-Lonely-Points, warning=FALSE}
+#Create qualtiy checking table and add columns for the first check
+# Ensure projection is equidistant and can use a euclidean nearest
+# neighbor algorithm (North Pole Azimuthal Equidistant projection)
+sfQualityCheck <- sfFullEurope %>% st_transform(crs = 102016) %>%
+  mutate(lonelySpatialFlag = FALSE,
+         lonelySpatialRM = FALSE)
+
+
+#Find the nearest neighbor for each point and check if its
+# greater than 75 km away
+lonelyDistKNN <- FNN::get.knnx(st_coordinates(sfQualityCheck),
+                               st_coordinates(sfQualityCheck),
+                               k = 2)$nn.dist[,2]
+lonely75kmID <- which(lonelyDistKNN > 75000)
+lonely75kmIndiv <-
+  sfQualityCheck[lonely75kmID,]$`individual-local-identifier` %>%
+  unique() %>% length()
+
+# update quality check columns
+sfQualityCheck$lonelySpatialFlag[lonely75kmID] <- TRUE
+```
+
+After completing the graphical data analysis, I found that the spatial data visually seemed to be consistent with no gross errors or GPS points way outside of the study areas (\hyperlink{Plot-Spatial-Map}{{\color{blue}{\underline{`r figNum("Plot-Spatial-Map", display = "cite")`}}}}). This was likely influenced by the data quality checking standards required for submission to the MoveBank database. Despite this, we ran a nearest neighbor analysis to flag odd points. If a point was found to be greater than 75 km from its nearest point, it was flagged for closer inspection. This check ended up providing a few flagged points (\hyperlink{Draw-Summary-Table}{{\color{blue}{\underline{`r TabNum("Draw-Summary-Table", display = "cite")`}}}}), but after examining them individually, it was determined that they were just from individuals that made long movements in a timestep and weren't that close spatially to the other tagged individuals.
+
+```{r Check-for-Long-Distance-Movements, warning=FALSE}
+#Create columns for second check
+sfQualityCheck <- sfQualityCheck %>%
+  mutate(longDistanceFlag = FALSE,
+         longDistanceRM = FALSE,
+         longDistance_HourFlag = FALSE,
+         longDistance_HourRM = FALSE)
+
+
+#identify movements greater than 100 km
+ldPointsID <- which(sfQualityCheck$dist > 100000)
+ldPointsIndiv <- sfQualityCheck[ldPointsID,]$`individual-local-identifier` %>%
+  unique() %>% length()
+
+ld_hrPointsID <- which(sfQualityCheck$dist_hour > 100000)
+ld_hrPointsIndiv <-
+  sfQualityCheck[ld_hrPointsID,]$`individual-local-identifier` %>%
+  unique() %>% length()
+
+# update quality check columns
+sfQualityCheck$longDistanceFlag[ldPointsID] <- TRUE
+sfQualityCheck$longDistance_HourFlag[ld_hrPointsID] <- TRUE
+
+
+# check long distance by hour flags
+# sfQualityCheck %>% filter(longDistance_HourFlag) %>%
+#   dplyr::select(dist, hours, dist_hour) %>% View()
+# decided all were okay they were just over 100 km per hour,
+#   this is realistic for barnacle geese
+
+# check long distance checks
+# sfQualityCheck %>% filter(longDistanceFlag) %>%
+#   dplyr::select(dist, hours, dist_hour) %>% View()
+# decided all were okay, pretty much the same as above
+
+
+
+```
+
+I also wanted to flag movements that spanned extremely large distances during a timestep. These locations may indicate GPS errors and I should consider their inclusion more closely. These flagged movements could also be an artifact of the GPS collar only logging points seasonally or in a case where there were blocks of missed satellite fixes. For this check I parsed the dataset for movements with a distance traveled greater than 100 km. This actually flagged `r length(ldPointsID)` points, which would be a lot to go through. In order to cut down the number of points, I needed to consider the timestep length during those long movements. Moving 100 km over 1 hour is a lot different than moving 100 km over 24 hours. During the exploratory data analysis, I measured used hours as the unit for timesteps and created a distance per hour column in the dataframe as well. I then ran a similar check to flag movements greater than 100 km per hour which flagged a more reasonable `r length(ld_hrPointsID)` points. However, after doing some background research on barnacle geese, I did find evidence that while flying 100 km per hour is on the upper range of the species abilities, it is not unheard of. With this evidence in mind, I chose not to remove any of the flagged `r length(ld_hrPointsID)` locations.
+
+```{r Check-for-Low-Data-Indiv, warning=FALSE}
+#create column for low data check
+sfQualityCheck <- sfQualityCheck %>%
+  mutate(lowDataRM = FALSE)
+
+#identify individuals with lower than 100 relocations
+lowDataIndiv <- sfQualityCheck %>%
+  dplyr::group_by(`individual-local-identifier`) %>%
+  dplyr::summarise(nPoints = n()) %>% dplyr::filter(nPoints < 100) %>%
+  dplyr::pull(`individual-local-identifier`)
+
+
+# update quality check columns
+sfQualityCheck$lowDataRM[
+  which(sfQualityCheck$`individual-local-identifier` %in% lowDataIndiv)] <- TRUE
+```
+
+During the graphical analysis, we also found that there was one individual in particular (individual ID 78040) that had a very low number of relocations, especially in comparison to other individuals in the study (\hyperlink{Plot-Individual-Point-Distribution}{{\color{blue}{\underline{`r figNum("Plot-Individual-Point-Distribution", display = "cite")`}}}}). This could be indicative of either a failed GPS transmitter, or an individual that suffered from capture myopathy and died quickly. To avoid distorting our dataset with an individual that contributed very little data, all individuals with less than 100 points were removed from the dataset during this data quality check.
+
+```{r Check-for-Hours-Between-Movements, warning=FALSE}
+#Create columns for hours pers step check
+sfQualityCheck <- sfQualityCheck %>%
+  mutate(hoursFlag = FALSE,
+         hoursRM = FALSE)
+
+#identify movements lasting longer than 48 hours
+hrsPointsID <- which(sfQualityCheck$hours > 48)
+hrsPointsIndiv <- sfQualityCheck[hrsPointsID,]$`individual-local-identifier` %>%
+  unique() %>% length()
+
+# update quality check columns
+sfQualityCheck$hoursFlag[hrsPointsID] <- TRUE
+
+# check hours between steps
+# sfQualityCheck %>% filter(hoursFlag) %>%
+#   dplyr::select(dist, hours, dist_hour) %>% View()
+# decided to remove all of these points as consecutive bursts won't impact
+#  results involving home range and displacement analysis
+
+
+sfQualityCheck$hoursRM[hrsPointsID] <- TRUE
+
+```
+
+
+Most of the inconsistencies identified within the dataset in the exploratory analysis seemed to be related with the temporal continuation within the dataset. The Barents Sea data had the most variation in the spread of hours between consecutive points (\hyperlink{Plot-Time-Between-Points-Indiv}{{\color{blue}{\underline{`r figNum("Plot-Time-Between-Points-Indiv", display = "cite")`}}}}). While the other study regions had an average of 2 hour timesteps, Barents Sea data logged a lot data on different temporal scales. Patterns I noticed while searching through the data included a 5 hour period and a 19 hour period daily and a 3-3-3-15 hour schedule daily. This will limit some analyses that can be done with the Barents Sea data. Despite this, all regions had some large outliers in in times between GPS fixes that need to be flagged and dealt with. For this check, I flagged all points that had greater than 48 hours between the GPS fixes. This check will be useful when deciding which points to remove from the distance per hour check. I expected to get a lot of flags during this check and I will have to look at where these breaks occur and if there is a pattern there. GPS transmitters could be programmed to take less points during certain seasons or it could just be an error with the transmitter in communicating with the satellites. To use this data I will likely have to separate the data into bursts of movements around these long periods of time. After examining the flagged data, I resolved to remove all of the flagged points in this check as non-continuous bursts shouldn't impact results involving home range and spatial displacement analyses.
+
+
+\
+
+
+
+\hypertarget{Draw-Summary-Table}{{\color{blue}{}}}
+```{r Draw-Summary-Table, results='asis'}
+
+# Create Final Flag and RM column and count affected individuals
+sfQualityCheck$finalFlag <- sfQualityCheck %>% sf::st_set_geometry(NULL) %>%
+  dplyr::select(dplyr::contains("Flag")) %>% apply(., MARGIN = 1, any)
+sfQualityCheck$finalRM <- sfQualityCheck %>% sf::st_set_geometry(NULL) %>%
+  dplyr::select(dplyr::contains("RM")) %>% apply(., MARGIN = 1, any)
+sfGood <- sfQualityCheck %>% filter(!finalRM )
+
+finalIndiv <- sfQualityCheck %>% group_by(`individual-local-identifier`) %>%
+  summarise(flagged = ifelse(any(finalFlag) | any(finalRM), TRUE, FALSE)) %>%
+  pull(flagged) %>% sum(.)
+
+# Create main summary table
+summaryTable <- tribble(~'Check', ~'Individuals', ~'Flagged', ~'Removed',
+                        "Spatially Isoloated Points", lonely75kmIndiv,  
+                        sum(sfQualityCheck$lonelySpatialFlag),
+                        sum(sfQualityCheck$lonelySpatialRM),
+                        "Long Distance", ldPointsIndiv,
+                        sum(sfQualityCheck$longDistanceFlag),
+                        sum(sfQualityCheck$longDistanceRM),
+                        "Long Distance by Hour", ld_hrPointsIndiv,
+                        sum(sfQualityCheck$longDistance_HourFlag),
+                        sum(sfQualityCheck$longDistance_HourRM),
+                        "Low Data Individuals",  length(lowDataIndiv),
+                        sum(sfQualityCheck$lowDataRM),
+                        sum(sfQualityCheck$lowDataRM),
+                        "Hours Between Steps", hrsPointsIndiv,
+                        sum(sfQualityCheck$hoursFlag),
+                        sum(sfQualityCheck$hoursRM))
+
+
+
+
+# Add totals to summary tables
+summaryTable <- tibble("Check" = "Totals",
+                       "Individuals" = ifelse(anyNA(summaryTable$Individuals),
+                                              NA, finalIndiv),
+                       "Flagged" = ifelse(anyNA(summaryTable$Flagged),
+                                          NA, sum(sfQualityCheck$finalFlag)),
+                       "Removed" = ifelse(anyNA(summaryTable$Removed),
+                                          NA, sum(sfQualityCheck$finalRM ))) %>%
+  bind_rows(summaryTable, .)
+
+
+options(knitr.kable.NA = 'TBD')
+knitr::kable(summaryTable, col.names = c("Quality Check",
+                                         "# of Individuals Flagged",
+                                         "# of Relocations Flagged",
+                                         "# of Relocations Removed"))
+```
+
+```{r results="asis"}
+jpfxns2::adaptiveCenterCaption(chunckName="Draw-Summary-Table",
+                               caption = "Table summarizing the results of the \
+                               data quality checking", capFxn = "TabNum")
+```
+
+
+
+
+# Final Data Analysis
+__*Final Data Analysis Methods*__  
+
+
+
+```{r Calculate-Displacement-Distance, warning=F, cache=TRUE, cache.lazy=FALSE, include=FALSE}
+# find max displacement distance traveled by indidividuals
+dispDF <- sfGood %>% st_transform(crs = 102016) %>% #reproject to equidistant
+                                                    # projection (North Pole
+                                                    # Azimuthal Equidistant)
+  group_by(studyArea, `individual-local-identifier`) %>%
+  group_split() %>%
+  map_dfr(., ~{
+    tibble("studyArea" = unique(.x$studyArea),
+           "indiv" = unique(.x$`individual-local-identifier`),
+           # "maxDisp" = {st_distance(.x, .x) %>% max() %>% as.double()}
+           #Faster to use a nearest neighbor algorithm since I am just doing
+           # nearest neighbor on euclidean distances
+           "maxDisp" = {FNN::get.knnx(st_coordinates(.x),
+                                      st_coordinates(.x),
+                                      k = nrow(.x))$nn.dist %>% max()}
+           )
+  })
+
+#Summary of Max Dispersal in Regions
+dispDF %>% group_by(studyArea) %>%
+  summarise(n = n(),
+            mean = mean(maxDisp),
+            sd = sd(maxDisp),
+            upRange = range(maxDisp)[1],
+            lowRange = range(maxDisp)[2])
+```
+
+
+```{r ANOVA-Displacement-Distance, warning=F, include=FALSE}
+# factor the studyArea group column in displacement table
+dispDF$studyArea <- factor(dispDF$studyArea)
+
+# Do one way ANOVA
+dispANOVA <- aov(maxDisp ~ studyArea, data = dispDF)
+
+# Print Anova Summary
+summary(dispANOVA) # test is significant
+
+# Test for pairwise differences
+TukeyHSD(dispANOVA) # only significant pairwise difference at 95% confidence is
+                    #  between Greenland and the Barents Sea
+dispTukeyPvalues <- TukeyHSD(dispANOVA)$studyArea[,4]
+```
+
+
+```{r Calculate-Summer-Home-Ranges, warning=F, include=FALSE, cache=TRUE, cache.lazy=FALSE}
+# Seperate out summer months and transform to European lambert equal area
+sfSummer <- sfGood %>% filter(month %in% c("Jun", "Jul")) %>%
+  st_transform(crs = 3035)
+summerDF <- sfSummer %>% st_set_geometry(NULL)
+# plot(st_geometry(sfGood))
+# plot(st_geometry(sfSummer), col = "red", add = TRUE)
+
+# Check number of points in regions after subset
+sfSummer %>% group_by(studyArea) %>% summarise(count = n())
+
+# Check number of points in individuals after subset
+# had to remove another individual as it had less than 100 points in the
+#  summer breeding area
+sfSummerSub <- sfSummer %>% group_by(`individual-local-identifier`) %>%
+  summarise(count = n(), studyArea = unique(studyArea)) %>% filter(count > 100)
+sfSummer <- sfSummer %>%
+  filter(`individual-local-identifier` %in%
+           unique(sfSummerSub$`individual-local-identifier`))
+
+#Create Spatial Point Data Frame of the spatial data for use with the
+#  adehabitatHR package
+summerSPDF <- as(sfSummer, "Spatial")
+summerSPDF$individual.local.identifier <-
+  factor(summerSPDF$individual.local.identifier)
+
+# Calculate kernal density home range for each individual (takes awhile)
+system.time(summerKUD <-
+              adehabitatHR::kernelUD(summerSPDF[,"individual.local.identifier"],
+                                     h = "href", grid = 2000, extent = 2))
+
+# Get polygon vertices of the 95% home range (takes awhile)
+system.time(summerHR95 <- getverticeshr(summerKUD, 95))
+
+
+# Change it back to an sf feature
+sfSummerHR95 <- st_as_sf(summerHR95) %>% mutate(id = as.character(id)) %>%
+  left_join(., (summerDF[, c("individual-local-identifier", "studyArea")] %>%
+                  distinct()), by = c("id" = "individual-local-identifier")) %>%
+  mutate(indiv = factor(id),
+         studyArea = factor(studyArea),
+         area = area / 1000000) %>% #converts home range to km squared
+  filter(area > .001)
+
+#Summary of Home Range Size in Regions
+sfSummerHR95 %>% group_by(studyArea) %>%
+  summarise(n = n(),
+            mean = mean(area),
+            sd = sd(area),
+            upRange = range(area)[1],
+            lowRange = range(area)[2])
+
+```
+
+
+```{r Home-Range-ANOVA, warning=F, include=FALSE}
+# Factor the studyArea group column in home range table
+sfSummerHR95$studyArea <- factor(sfSummerHR95$studyArea)
+
+# Do one way ANOVA on the area between sub-populations
+hrANOVA <- aov(area ~ studyArea, data = sfSummerHR95)
+
+# Print Anova Summary
+summary(hrANOVA) # test is not significant
+```
+
+
+For my analysis, I wanted to test for differences in the average displacement between winter and summer (breeding) sites, as well as regional differences in summer home range size among the sub-populations of barnacle geese.
+To calculate displacement distance I created a nearest neighbor matrix using the 'FNN' package in R for each individual across all of their relocations and recorded the max distance between any two points.
+I then ran a one-way ANOVA across the three sub-populations and used a post-hoc Tukey test to examine pairwise differences in displacement.
+
+For home range analysis, I only focused on the summer breeding season as there was a lack of data during the winter months  (\hyperlink{Count-of-points-per-month}{{\color{blue}{\underline{`r figNum("Count-of-points-per-month", display = "cite")`}}}}).
+In order to focus on relocations of birds residing in their summer range (not still migrating) across all sub-populations, I subset the data to only include relocations occurring in June and July.
+I then used the 'adehabitatHR' package in R to calculate the 95% kernel density home range for each individual using their points from the selected time period.
+Similarly to the displacement analysis, I used a one-way ANOVAs using the sub-populations as the grouping factor to examine regional differences in home range size.
+
+
+\newpage
+__*Final Data Analysis Results*__  
+
+When examining the regional differences between winter and breeding sites using max displacement distance, I found that the only significant regional difference was between the Greenland and Barents Sea populations (p = `r round(dispTukeyPvalues[1], 2)`; \hyperlink{Plot-Displacement-Distance}{{\color{blue}{\underline{`r figNum("Plot-Displacement-Distance", display = "cite")`}}}}).
+Displacement distances ranged from `r round(dispDF$maxDisp[order(dispDF$maxDisp)[1]] / 1000)` to `r round(dispDF$maxDisp[order(dispDF$maxDisp)[length(dispDF$maxDisp)]] / 1000)` km, with the most variation occurring in the Barents Sea subpopulation.  
+
+When comparing summer home range sizes, I ended up having to remove another individual from the Barents Sea sup-population because it lacked at least 100 points during the summer breeding months.
+The ANOVA found no significant variation between regions (p > 0.05; \hyperlink{Plot-Home-Range-Size}{{\color{blue}{\underline{`r figNum("Plot-Home-Range-Size", display = "cite")`}}}}).
+The largest variation in home range size occurred in the Svalbard region, while the least occurred in the Greenland subpopulation.
+The home range size varied across study regions from `r round(sfSummerHR95$area[order(sfSummerHR95$area)[1]] * 1000)` square m up to `r round(sfSummerHR95$area[order(sfSummerHR95$area)[length(sfSummerHR95$area)]])`  square km.
+This variation is likely caused by the difference between individuals that were always on the nest when a GPS location was taken and individuals that did not breed that summer.
+
+
+```{r Plot-Displacement-Distance, echo=FALSE, warning=F, fig.align='center'}
+ggplot(dispDF, aes(x = factor(studyArea), y = maxDisp/1000,
+                   col = factor(studyArea))) +
+  geom_boxplot() +
+  xlab("Study Area") + ylab("Maximum Displacement (km)") +
+  ggtitle("Maximum Displacement\nAmong Study Regions") +
+  theme(plot.title = element_text(hjust = 0.5)) + # center title
+  theme(panel.grid.major.y =                        # keep horizontal guidelines
+          element_line(colour = "black",size=0.2),
+        panel.grid.major.x = element_blank(),       
+        panel.grid.minor.y = element_line(colour = "black"),
+        panel.background = element_blank())  +
+  theme(panel.border =                                # create black plot border
+          element_rect(colour = "black", fill=NA, size=.5),
+        axis.line = element_line(colour = "black", size = 1)) +
+  scale_colour_manual(values=cbColors) + # change to colorbline friendly palatte
+  theme(legend.position = "none") # remove legend
+```
+
+```{r results="asis"}
+jpfxns2::adaptiveCenterCaption(chunckName="Plot-Displacement-Distance",
+                               caption = "Distribution of maximum displacement \
+                               distance (km) in barnacle geese between winter \
+                               and summer ranges across breeding \
+                               sub-populations", capFxn = "figNum")
+```
+
+
+```{r Plot-Home-Range-Size, echo=FALSE, warning=F, fig.align='center'}
+ggplot(sfSummerHR95, aes(x = factor(studyArea), y = area,
+                         col = factor(studyArea))) +
+  geom_boxplot() +
+  xlab("Study Area") +
+  ylab(expression(Home~Range~Size~(km^2))) +
+  ggtitle("95% Summer Home Range Size\nAmong Study Regions") +
+  theme(plot.title = element_text(hjust = 0.5)) + # center title
+  theme(panel.grid.major.y =                        # keep horizontal guidelines
+          element_line(colour = "black",size=0.2),
+        panel.grid.major.x = element_blank(),       
+        panel.grid.minor.y = element_line(colour = "black"),
+        panel.background = element_blank())  +
+  theme(panel.border =                                # create black plot border
+          element_rect(colour = "black", fill=NA, size=.5),
+        axis.line = element_line(colour = "black", size = 1)) +
+  scale_colour_manual(values=cbColors) + # change to colorbline friendly palatte
+  theme(legend.position = "none") # remove legend
+```
+
+```{r results="asis"}
+jpfxns2::adaptiveCenterCaption(chunckName="Plot-Home-Range-Size",
+                               caption = "Distribution of summer home range \
+                               size ($km^2$) in barnacle geese across \
+                               breeding sub-populations", capFxn = "figNum")
+```
+
+
+
+
+
+
+```{r Save-Final-Dataset-CSV, echo=FALSE}
+# write_csv(sfGood, path = file.path(basePath,
+#                                    paste0("FinalCleanedData/FinalCleanedData_",
+#                                           format(Sys.Date(), '%Y-%d-%m'),
+#                                           ".csv")))
+```
+
+# Works Cited
+
+
+<style>
+#refs {
+  padding-left: 22px ;
+  text-indent: -22px ;
+}
+</style>
+
+
+<div id="refs"></div>
+
+
+
+<!-- # Add an copy of the code chunks to the bottom of the file with the chuck headings as comments to help organize it. -->
+
+
+```{r Give-Appendix-Heading, include=TRUE, eval=includeAppendix, results='asis', echo=FALSE}
+cat('\\newpage\n# Code Appendix')
+```
+
+```{r Filenames, include=FALSE}
+#Options needed to control the Appendix
+RmdName <- knitr::current_input()
+RfileName <- str_sub(RmdName, end = -3)
+```
+
+
+```{r Export-R-File, include=FALSE, eval=includeAppendix}
+knitr::purl(RmdName, documentation = 1)
+```
+
+```{r Add-RMarkdown-Code-Appendix, code = if (file.exists(RfileName)) {readLines(RfileName)}, echo=TRUE, eval=FALSE}
+```
+
+```{r Delete-R-File, include=FALSE}
+if (file.exists(RfileName))
+  #Delete file if it exists
+  file.remove(RfileName)
+```
