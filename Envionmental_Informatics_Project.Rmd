@@ -23,7 +23,7 @@ urlcolor: blue
 knitr::opts_chunk$set(echo = FALSE)
 options(knitr.duplicate.label = 'allow')
 
-#Should the Appenix be outputted?
+#Should the Appendix be outputted?
 includeAppendix <- FALSE
 ```
 
