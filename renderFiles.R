@@ -38,6 +38,45 @@ library(readr)
 library(stringr)
 
 
+createBlogdownHTML <- function(rmdFile, htmlFile, outputYAML, outputName) {
+  #Read in RMD File
+  rmdFile <- readr::read_lines(rmdFile)
+  
+  #Extract YAML from RMD
+  ymlIDs <- stringr::str_which(rmdFile, pattern = "---")
+  ymlRmd <- rmdFile[ymlIDs[1]:(ymlIDs[2]-1)]
+  
+  #Get Output YAML
+  ymlOutput <- capture.output(outputYAML)
+  cat(ymlOutput)
+  
+  #Combine to the full YAML
+  ymlFull <- c(ymlRmd, 
+               c('', '#output Parameters'),
+               ymlOutput[2:length(ymlOutput)],
+               c(''))
+  
+  #Read in HTML file
+  htmlFile <- readr::read_lines(htmlFile)
+  
+  cat("\n")
+  cat(getwd())
+  
+  cat("\n")
+  # cat(c(ymlFull,htmlFile))
+  #Write New HTML fil
+  readr::write_lines(c(ymlFull,htmlFile), path = outputName)
+  cat(file.exists(outputName))
+}
+
+createBlogdownHTML(rmdFile = "Envionmental_informatics_Project.Rmd",
+                   htmlFile = "Envionmental_informatics_Project.html",
+                   outputYAML = (yml_empty() %>% 
+                                   yml_output(blogdown::html_page(toc = TRUE,
+                                                                  fig_caption = TRUE))),
+                   outputName = "Test.html"
+)
+
 
 
 ## Create YAML Header
