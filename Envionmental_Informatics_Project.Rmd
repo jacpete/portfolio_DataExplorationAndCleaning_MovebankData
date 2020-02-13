@@ -30,8 +30,8 @@ draft: true
 
 #define Parameters
 params:
-  appendix: false
-  type: 'html'
+  appendix: ''
+  type: ''
 ---
 
 ```{r Initial-Script-Description, eval=FALSE, echo = FALSE}
@@ -192,7 +192,7 @@ dataFull <- sfFullEurope %>% st_set_geometry(NULL)
 
 ```
 
-# Document Overview:
+# Document Overview: {-}
 This document was originally used to create my final project for the ABE 651 (*Environmental Informatics*) class I took while at Purdue University.
 I am now repurposing it to use as an example in my data science portfolio I am putting together to host on my [Github](https://github.com/jacpete//).
 
@@ -202,7 +202,7 @@ The project was meant to be open ended so that students could use data they had 
 A repository with the data and code used to create this pdf can be found [here](https://github.com/jacpete/portfolio_DataExplorationAndCleaning_MovebankData//).
 
 
-# Abstract
+# Abstract {-}
 
 With this project, I explored the offerings of an animal movement data repository and created a Rmarkdown document that contained the code used to clean, format, and explore the data available at [MoveBank](https://www.datarepository.movebank.org/).
 I chose to use data depicting movements of barnacle geese in Northern Europe and the North Atlantic within three separate sub-populations.
@@ -212,7 +212,7 @@ However, there was no significant variation between summer home range size in th
 
 \
 
-# Dataset Description:
+# Dataset Description: {-}
 __*Dataset Source*__
 
 The data was downloaded from [MoveBank](https://www.datarepository.movebank.org/) and consists of movement data of `r length(unique(dataFull$'individual-local-identifier'))` barnacle geese (*Branta leucopsis*) individuals in Northern Europe from `r format(min(dataFull$timestamp), "%B %Y")` to `r format(max(dataFull$timestamp), "%B %Y")`.
@@ -248,7 +248,9 @@ This data was downloaded in csv format and includes the following data:
 
 \
 
-# Graphical Analysis:
+test plot 1 ref with Fig. \@ref(fig:Plot-Individuals-Per-Study-Region) and hopefully it works
+
+# Graphical Analysis: {-}
 __*Graphical Analysis Methods*__
 
 As not a lot of information was included in the original data set, I created a few new columns for the dataset as noted in the list above.
@@ -595,7 +597,7 @@ jpfxns2::adaptiveCenterCaption(chunckName="Count-of-points-per-month",
 
 
 
-# Data Quality Checking
+# Data Quality Checking {-}
 __*Data Quality Checking Methods*__
 
 
@@ -779,7 +781,7 @@ jpfxns2::adaptiveCenterCaption(chunckName="Draw-Summary-Table",
 
 
 
-# Final Data Analysis
+# Final Data Analysis {-}
 __*Final Data Analysis Methods*__
 
 
@@ -987,9 +989,18 @@ jpfxns2::adaptiveCenterCaption(chunckName="Plot-Home-Range-Size",
 #                                           ".csv")))
 ```
 
-# Works Cited
+# Works Cited {-}
 
 ```{r, results="asis", eval = pdf}
+#backup default values
+cat("\\newlength{\\defparindent}
+\\setlength{\\defparindent}{\\parindent}
+\\newlength{\\defleftskip}
+\\setlength{\\defleftskip}{\\leftskip}
+\\newlength{\\defparskip}
+\\setlength{\\defparskip}{\\parskip}")
+
+#Set new values
 cat("\\setlength{\\parindent}{-0.2in}
 \\setlength{\\leftskip}{0.2in}
 \\setlength{\\parskip}{8pt}
@@ -1005,13 +1016,20 @@ cat("<style>
 ```
 <div id="refs"></div>
 
+```{r, results="asis", eval = pdf}
+#restore default indents and spacing
+cat("\\setlength{\\parindent}{\\defparindent}
+\\setlength{\\leftskip}{\\defleftskip}
+\\setlength{\\parskip}{\\defparskip}
+\\indent")
+```
 
 
 <!-- # Add an copy of the code chunks to the bottom of the file with the chuck headings as comments to help organize it. -->
 
 
 ```{r Give-Appendix-Heading, include=TRUE, eval=includeAppendix, results='asis', echo=FALSE}
-cat('\\newpage\n# Code Appendix')
+cat('\\newpage\n# Code Appendix {-}')
 ```
 
 ```{r Filenames, include=FALSE}
