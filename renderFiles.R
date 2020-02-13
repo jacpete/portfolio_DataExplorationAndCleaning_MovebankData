@@ -1,13 +1,9 @@
 library(ymlthis)
 library(markdown)
+library(readr)
+library(stringr)
 
 
-# file.remove('pdf_document.yaml')
-# yml_empty() %>% 
-#   yml_output(pdf_document(toc = TRUE,
-#                           extra_dependencies = c('blindtext', 'color'))) %>%
-#   yml_pluck("output") %>%
-#   use_yml_file(path = 'pdf_document.yaml', git_ignore = TRUE)
 file.remove('pdf_document.yaml'); yml_empty() %>% 
   yml_output(bookdown::pdf_document2(toc = FALSE,
                           extra_dependencies = c('blindtext', 'color'),
@@ -34,8 +30,6 @@ rmarkdown::render(input = 'Envionmental_Informatics_Project.Rmd',
                   params = list(type = "html",
                                 appendix = TRUE))
 
-library(readr)
-library(stringr)
 
 
 createBlogdownHTML <- function(rmdFile, htmlFile, outputYAML, outputName) {
@@ -44,29 +38,28 @@ createBlogdownHTML <- function(rmdFile, htmlFile, outputYAML, outputName) {
   
   #Extract YAML from RMD
   ymlIDs <- stringr::str_which(rmdFile, pattern = "---")
-  ymlRmd <- rmdFile[ymlIDs[1]:(ymlIDs[2]-1)]
+  ymlRmd <- rmdFile[(ymlIDs[1]+1):(ymlIDs[2]-1)] 
+  
+  #Ensure there is no output section in the YAML, as we are adding our own
+  ymlRmd <- ymlRmd %>% 
+    paste0(collapse = "\n") %>% 
+    ymlthis::as_yml() %>%  
+    ymlthis::yml_discard("output") %>% 
+    capture.output()
   
   #Get Output YAML
   ymlOutput <- capture.output(outputYAML)
-  cat(ymlOutput)
-  
+
   #Combine to the full YAML
-  ymlFull <- c(ymlRmd, 
-               c('', '#output Parameters'),
+  ymlFull <- c(ymlRmd[1:(length(ymlRmd)-1)], 
                ymlOutput[2:length(ymlOutput)],
                c(''))
   
   #Read in HTML file
   htmlFile <- readr::read_lines(htmlFile)
   
-  cat("\n")
-  cat(getwd())
-  
-  cat("\n")
-  # cat(c(ymlFull,htmlFile))
   #Write New HTML fil
   readr::write_lines(c(ymlFull,htmlFile), path = outputName)
-  cat(file.exists(outputName))
 }
 
 createBlogdownHTML(rmdFile = "Envionmental_informatics_Project.Rmd",
@@ -79,29 +72,7 @@ createBlogdownHTML(rmdFile = "Envionmental_informatics_Project.Rmd",
 
 
 
-## Create YAML Header
-rmdFile <- read_lines("Envionmental_informatics_Project.Rmd")
-ymlIDs <- stringr::str_which(rmdFile, pattern = "---")
-ymlRmd <- rmdFile[ymlIDs[1]:(ymlIDs[2]-1)]
-ymlOutput <- yml_empty() %>% 
-  yml_output(blogdown::html_page(toc = TRUE,
-                                 fig_caption = TRUE)) %>% 
-  capture.output(.)
-ymlFull <- c(ymlRmd, 
-             c('', '#output Parameters'),
-             ymlOutput[2:length(ymlOutput)],
-             c(''))
 
-
-cat(paste0(ymlFull, collapse = "\n"))
-
-
-
-htmlFile <- read_lines("Envionmental_informatics_Project.html")
-
-
-
-write_lines(c(ymlFull,htmlFile), path = "test.html")
 
 
 
