@@ -59,12 +59,12 @@ createBlogdownHTML <- function(rmdFile, htmlFile, outputYAML, outputName) {
   readr::write_lines(c(ymlFull,htmlFile), path = outputName)
 }
 
-createBlogdownHTML(rmdFile = "Environmental_informatics_Project.Rmd",
-                   htmlFile = "Environmental_informatics_Project.html",
+createBlogdownHTML(rmdFile = "Environmental_Informatics_Project.Rmd",
+                   htmlFile = "Environmental_Informatics_Project.html",
                    outputYAML = (yml_empty() %>% 
                                    yml_output(blogdown::html_page(toc = TRUE,
                                                                   fig_caption = TRUE))),
-                   outputName = "Test.html"
+                   outputName = "Environmental_Informatics_Project.html"
 )
 
 
