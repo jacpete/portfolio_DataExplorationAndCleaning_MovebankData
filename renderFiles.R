@@ -3,7 +3,7 @@ library(markdown)
 library(readr)
 library(stringr)
 
-
+####Render PDF####
 file.remove('pdf_document.yaml'); yml_empty() %>% 
   yml_output(bookdown::pdf_document2(toc = FALSE,
                           extra_dependencies = c('blindtext', 'color'))) %>%
@@ -15,7 +15,7 @@ rmarkdown::render(input = 'Environmental_Informatics_Project.Rmd',
                   params = list(type = "pdf",
                                 appendix = FALSE)) 
                   
-
+####Render HTML for Blogdown####
 file.remove('blogdown_html_page.yaml'); yml_empty() %>% 
   yml_output(blogdown::html_page(toc = TRUE,
                                  fig_caption = TRUE)) %>%
