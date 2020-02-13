@@ -34,8 +34,39 @@ rmarkdown::render(input = 'Envionmental_Informatics_Project.Rmd',
                   params = list(type = "html",
                                 appendix = TRUE))
 
+library(readr)
+library(stringr)
 
-# Figure \@ref(fig:cars-plot) is
-# ```{r cars-plot, out.width='70%', fig.cap='A figure example with a relative width 70\\%.'}
 
-# ```{r Plot-Individuals-Per-Study-Region, warning=F, results='hide', fig.align='center'}
+
+
+## Create YAML Header
+rmdFile <- read_lines("Envionmental_informatics_Project.Rmd")
+ymlIDs <- stringr::str_which(rmdFile, pattern = "---")
+ymlRmd <- rmdFile[ymlIDs[1]:(ymlIDs[2]-1)]
+ymlOutput <- yml_empty() %>% 
+  yml_output(blogdown::html_page(toc = TRUE,
+                                 fig_caption = TRUE)) %>% 
+  capture.output(.)
+ymlFull <- c(ymlRmd, 
+             c('', '#output Parameters'),
+             ymlOutput[2:length(ymlOutput)],
+             c(''))
+
+
+cat(paste0(ymlFull, collapse = "\n"))
+
+
+
+htmlFile <- read_lines("Envionmental_informatics_Project.html")
+
+
+
+write_lines(c(ymlFull,htmlFile), path = "test.html")
+
+
+
+
+
+
+
