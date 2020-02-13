@@ -979,7 +979,6 @@ cat('\\newpage\n# Code Appendix {-}')
 ```{r Filenames, include=FALSE}
 #Options needed to control the Appendix
 RmdName <- knitr::current_input()
-RmdName <- "Envionmental_Informatics_Project.Rmd"
 RfileName <- str_sub(RmdName, end = -3)
 ```
 
