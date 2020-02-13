@@ -1,13 +1,37 @@
 ---
 title: "Exploring MoveBank data and the movement characteristics of barnacle geese"
 author: "Jacob Peterson"
-date: "Last Rendered: `r format(Sys.Date(), '%B %d, %Y')`"
-output: pdf_document
-header-includes: \usepackage{blindtext} \usepackage{color}
-
+date: 'February, 12, 2020'
 bibliography: dataReferences.bib
 csl: ecosphere-doi.csl
+
+#Latex
 urlcolor: blue
+
+#blogdown_html_page
+slug: exploring-movebank-barnacle-geese
+categories:
+  - R
+tags:
+  - R
+  - Data Management
+  - Exploratory Analysis
+subtitle: ''
+summary: 'This is my quick summary'
+authors: []
+lastmod: '2020-02-05T23:41:25-06:00'
+featured: no
+image:
+  caption: ''
+  focal_point: ''
+  preview_only: no
+projects: []
+draft: true
+
+#define Parameters
+params:
+  appendix: false
+  type: 'html'
 ---
 
 ```{r Initial-Script-Description, eval=FALSE, echo = FALSE}
@@ -24,7 +48,11 @@ knitr::opts_chunk$set(echo = FALSE)
 options(knitr.duplicate.label = 'allow')
 
 #Should the Appendix be outputted?
-includeAppendix <- FALSE
+includeAppendix <- params$appendix
+
+#What type of document is this?
+pdf <- grepl(params$type, 'pdf')
+html <- grepl(params$type, 'html')
 ```
 
 ```{r Load-Package Libraries, include=FALSE, warning=FALSE}
@@ -65,7 +93,7 @@ dataSvalbard <-
   mutate(studyArea = "Svalbard")
 dataBarentsSea <-
   readr::read_csv("data/MigrationBarnacleGeese_BarentsSea_2014ori.csv",
-                  col_types = cols(`individual-local-identifier` = "c")) %>%  
+                  col_types = cols(`individual-local-identifier` = "c")) %>%
     mutate(studyArea = "Barents Sea")
 ```
 
@@ -144,7 +172,7 @@ sfFullEurope <- sfFull %>% st_transform(crs = 102016) %>%
 
 # Create and add trajectory details between steps to the data
 sfFullEurope <-
-  adehabitatLT::as.ltraj(xy = st_coordinates(sfFullEurope),      
+  adehabitatLT::as.ltraj(xy = st_coordinates(sfFullEurope),
                          date = dataFull$timestamp,
                          id = factor(sfFullEurope$`individual-local-identifier`),
                          typeII = TRUE) %>%
@@ -166,10 +194,10 @@ dataFull <- sfFullEurope %>% st_set_geometry(NULL)
 
 # Document Overview:
 This document was originally used to create my final project for the ABE 651 (*Environmental Informatics*) class I took while at Purdue University.
-I am now repurposing it to use as an example in my data science portfolio I am putting together to host on my [Github](https://github.com/jacpete//).  
+I am now repurposing it to use as an example in my data science portfolio I am putting together to host on my [Github](https://github.com/jacpete//).
 
 The purpose of this class project was meant to demonstrate our ability to find and manage a publicly available dataset, perform exploratory graphical analysis, run a data quality checking sequence, and perform a simple statistical analysis on the data.
-The project was meant to be open ended so that students could use data they had specific interests in and I chose to explore animal movement data from the data repository site [MoveBank](https://www.datarepository.movebank.org/).  
+The project was meant to be open ended so that students could use data they had specific interests in and I chose to explore animal movement data from the data repository site [MoveBank](https://www.datarepository.movebank.org/).
 
 A repository with the data and code used to create this pdf can be found [here](https://github.com/jacpete/portfolio_DataExplorationAndCleaning_MovebankData//).
 
@@ -185,7 +213,7 @@ However, there was no significant variation between summer home range size in th
 \
 
 # Dataset Description:
-__*Dataset Source*__  
+__*Dataset Source*__
 
 The data was downloaded from [MoveBank](https://www.datarepository.movebank.org/) and consists of movement data of `r length(unique(dataFull$'individual-local-identifier'))` barnacle geese (*Branta leucopsis*) individuals in Northern Europe from `r format(min(dataFull$timestamp), "%B %Y")` to `r format(max(dataFull$timestamp), "%B %Y")`.
 This included data from three specific study regions in Greenland, Svalbard, and Barents Sea [@dataGreenland; @dataBarentsSea; @dataSvalbard].
@@ -196,9 +224,9 @@ Open access datasets like these present opportunities to answer new ecological q
 
 \
 
-__*Dataset Format and Metadata*__  
+__*Dataset Format and Metadata*__
 
-This data was downloaded in csv format and includes the following data:  
+This data was downloaded in csv format and includes the following data:
 
 |     *Useful data included in all study regions as part of the original datasets:*
 
@@ -221,11 +249,11 @@ This data was downloaded in csv format and includes the following data:
 \
 
 # Graphical Analysis:
-__*Graphical Analysis Methods*__  
+__*Graphical Analysis Methods*__
 
 As not a lot of information was included in the original data set, I created a few new columns for the dataset as noted in the list above.
 This included splitting the data into movement tracts for each individual and calculating time per step and distance moved per step, as well as splitting the data up into different time periods for ease during graphical analysis.
-First,  I identified the distribution of individuals across the study regions (This is a \hyperlink{Plot-Individuals-Per-Study-Region}{{\color{blue}{\underline{`r figNum("Plot-Individuals-Per-Study-Region", display = "cite")`}}}}).
+First,  I identified the distribution of individuals across the study regions (\hyperlink{Plot-Individuals-Per-Study-Region}{{\color{blue}{\underline{`r figNum("Plot-Individuals-Per-Study-Region", display = "cite")`}}}}).
 I then mapped the points to see where exactly the birds from the different study regions were located and look for spatial outliers (\hyperlink{Plot-Spatial-Map}{{\color{blue}{\underline{`r figNum("Plot-Spatial-Map", display = "cite")`}}}}). Next I explored the distribution of movement records among individuals and study regions (\hyperlink{Plot-Individual-Point-Distribution}{{\color{blue}{\underline{`r figNum("Plot-Individual-Point-Distribution", display = "cite")`}}}}). This would help identify individuals that had a lot less relocations as well as the variation in the number of relocations gathered between study regions.
 I also plotted the distribution of the amount of time between consecutive points for each individual (\hyperlink{Plot-Time-Between-Points-Indiv}{{\color{blue}{\underline{`r figNum("Plot-Time-Between-Points-Indiv", display = "cite")`}}}}). Large gaps in time between successive points would make the data less useful and such gaps should be removed in further analyses.
 I was hoping to get fairly continuous data of year round movement in order to calculate both summer and winter home range sizes and estimate differences in step length during migration and within home ranges.
@@ -255,7 +283,7 @@ dataFull %>% group_by(studyArea) %>% # group by study area and summarise
   xlab("Study Area") + ggtitle("Count of Individuals Among Study Regions") +
   theme(panel.grid.major.y =                        # keep horizontal guidelines
           element_line(colour = "black",size=0.2),
-        panel.grid.major.x = element_blank(),       
+        panel.grid.major.x = element_blank(),
         panel.grid.minor.y = element_line(colour = "black"),
         panel.background = element_blank())  +
   theme(panel.border =                                # create black plot border
@@ -319,7 +347,7 @@ dataFull %>% group_by(`individual-local-identifier`, studyArea) %>%
   guides(fill=guide_legend(title="Study Area")) +
   theme(panel.grid.major.y =                        # keep horizontal guidelines
           element_line(colour = "black",size=0.2),
-        panel.grid.major.x = element_blank(),       
+        panel.grid.major.x = element_blank(),
         panel.grid.minor.y = element_line(colour = "black"),
         panel.background = element_blank())  +
   theme(panel.border =                                # create black plot border
@@ -494,7 +522,7 @@ tidyr::expand_grid(year = levels(dataYearSum$year),
   theme(axis.text.x = element_text(angle = 45, hjust = 1.3, vjust = 1.2)) +
   theme(panel.grid.major.y =                        # keep horizontal guidelines
           element_line(colour = "black",size=0.2),
-        panel.grid.major.x = element_blank(),       
+        panel.grid.major.x = element_blank(),
         panel.grid.minor.y = element_line(colour = "black"),
         panel.background = element_blank())  +
   theme(panel.border =                                # create black plot border
@@ -541,7 +569,7 @@ tidyr::expand_grid(month = levels(dataMonthSum$month),
   geom_bar(stat="identity", position=position_dodge(preserve = "single")) +
   theme(panel.grid.major.y =                        # keep horizontal guidelines
           element_line(colour = "black",size=0.2),
-        panel.grid.major.x = element_blank(),       
+        panel.grid.major.x = element_blank(),
         panel.grid.minor.y = element_line(colour = "black"),
         panel.background = element_blank())  +
   theme(panel.border =                                # create black plot border
@@ -568,7 +596,7 @@ jpfxns2::adaptiveCenterCaption(chunckName="Count-of-points-per-month",
 
 
 # Data Quality Checking
-__*Data Quality Checking Methods*__  
+__*Data Quality Checking Methods*__
 
 
 ```{r Check-for-Lonely-Points, warning=FALSE}
@@ -705,7 +733,7 @@ finalIndiv <- sfQualityCheck %>% group_by(`individual-local-identifier`) %>%
 
 # Create main summary table
 summaryTable <- tribble(~'Check', ~'Individuals', ~'Flagged', ~'Removed',
-                        "Spatially Isoloated Points", lonely75kmIndiv,  
+                        "Spatially Isoloated Points", lonely75kmIndiv,
                         sum(sfQualityCheck$lonelySpatialFlag),
                         sum(sfQualityCheck$lonelySpatialRM),
                         "Long Distance", ldPointsIndiv,
@@ -752,7 +780,7 @@ jpfxns2::adaptiveCenterCaption(chunckName="Draw-Summary-Table",
 
 
 # Final Data Analysis
-__*Final Data Analysis Methods*__  
+__*Final Data Analysis Methods*__
 
 
 
@@ -880,10 +908,10 @@ Similarly to the displacement analysis, I used a one-way ANOVAs using the sub-po
 
 
 \newpage
-__*Final Data Analysis Results*__  
+__*Final Data Analysis Results*__
 
 When examining the regional differences between winter and breeding sites using max displacement distance, I found that the only significant regional difference was between the Greenland and Barents Sea populations (p = `r round(dispTukeyPvalues[1], 2)`; \hyperlink{Plot-Displacement-Distance}{{\color{blue}{\underline{`r figNum("Plot-Displacement-Distance", display = "cite")`}}}}).
-Displacement distances ranged from `r round(dispDF$maxDisp[order(dispDF$maxDisp)[1]] / 1000)` to `r round(dispDF$maxDisp[order(dispDF$maxDisp)[length(dispDF$maxDisp)]] / 1000)` km, with the most variation occurring in the Barents Sea subpopulation.  
+Displacement distances ranged from `r round(dispDF$maxDisp[order(dispDF$maxDisp)[1]] / 1000)` to `r round(dispDF$maxDisp[order(dispDF$maxDisp)[length(dispDF$maxDisp)]] / 1000)` km, with the most variation occurring in the Barents Sea subpopulation.
 
 When comparing summer home range sizes, I ended up having to remove another individual from the Barents Sea sup-population because it lacked at least 100 points during the summer breeding months.
 The ANOVA found no significant variation between regions (p > 0.05; \hyperlink{Plot-Home-Range-Size}{{\color{blue}{\underline{`r figNum("Plot-Home-Range-Size", display = "cite")`}}}}).
@@ -901,7 +929,7 @@ ggplot(dispDF, aes(x = factor(studyArea), y = maxDisp/1000,
   theme(plot.title = element_text(hjust = 0.5)) + # center title
   theme(panel.grid.major.y =                        # keep horizontal guidelines
           element_line(colour = "black",size=0.2),
-        panel.grid.major.x = element_blank(),       
+        panel.grid.major.x = element_blank(),
         panel.grid.minor.y = element_line(colour = "black"),
         panel.background = element_blank())  +
   theme(panel.border =                                # create black plot border
@@ -930,7 +958,7 @@ ggplot(sfSummerHR95, aes(x = factor(studyArea), y = area,
   theme(plot.title = element_text(hjust = 0.5)) + # center title
   theme(panel.grid.major.y =                        # keep horizontal guidelines
           element_line(colour = "black",size=0.2),
-        panel.grid.major.x = element_blank(),       
+        panel.grid.major.x = element_blank(),
         panel.grid.minor.y = element_line(colour = "black"),
         panel.background = element_blank())  +
   theme(panel.border =                                # create black plot border
@@ -960,11 +988,21 @@ jpfxns2::adaptiveCenterCaption(chunckName="Plot-Home-Range-Size",
 ```
 
 # Works Cited
-\setlength{\parindent}{-0.2in}
-\setlength{\leftskip}{0.2in}
-\setlength{\parskip}{8pt}
-\noindent
 
+```{r, results="asis", eval = pdf}
+cat("\\setlength{\\parindent}{-0.2in}
+\\setlength{\\leftskip}{0.2in}
+\\setlength{\\parskip}{8pt}
+\\noindent")
+```
+```{r, results="asis", eval = html}
+cat("<style>
+#refs {
+  padding-left: 22px ;
+  text-indent: -22px ;
+}
+</style>")
+```
 <div id="refs"></div>
 
 

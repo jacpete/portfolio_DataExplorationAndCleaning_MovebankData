@@ -1,29 +1,27 @@
 library(ymlthis)
+library(markdown)
 
-baseYML <- yml() %>% 
-  yml_title('Exploring MoveBank data and the movement characteristics of barnacle geese') %>% 
-  yml_author('Jacob Peterson') %>% 
-  yml_date('February, 12, 2020') %>% 
-  yml_citations(bibliography = 'dataReferences.bib', 
-                csl = 'ecosphere-doi.csl')
 
 file.remove('pdf_document.yaml')
-# baseYML %>% 
-yml() %>% 
-  yml_output(pdf_document(toc = TRUE, 
-                          extra_dependencies = c('blindtext', 'color'))) %>% 
-  yml_latex_opts(urlcolor = 'blue') %>% 
+yml_empty() %>% 
+  yml_output(pdf_document(toc = TRUE,
+                          extra_dependencies = c('blindtext', 'color'))) %>%
+  yml_pluck("output") %>%
   use_yml_file(path = 'pdf_document.yaml', git_ignore = TRUE)
 
+rmarkdown::render(input = 'Envionmental_Informatics_Project.Rmd',
+                  output_yaml = 'pdf_document.yaml',
+                  params = list(type = "pdf",
+                                appendix = TRUE))
+                  
 
+file.remove('blogdown_html_page.yaml')
+yml_empty() %>% 
+  yml_output(blogdown::html_page(toc = TRUE)) %>%
+  yml_pluck("output") %>%
+  use_yml_file(path = 'blogdown_html_page.yaml', git_ignore = TRUE)
 
-
-htmlYML <- baseYML %>% 
-  yml_output(blogdown::html_page(toc = TRUE))
-                          
-
-
-rmarkdown::render(input = 'Envionmental_Informatics_Project_Website.Rmd',
-                  output_yaml = 'pdf_document.yaml')
-
-
+rmarkdown::render(input = 'Envionmental_Informatics_Project.Rmd',
+                  output_yaml = 'blogdown_html_page.yaml',
+                  params = list(type = "html",
+                                appendix = TRUE))
