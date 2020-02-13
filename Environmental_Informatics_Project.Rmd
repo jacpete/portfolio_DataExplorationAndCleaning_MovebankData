@@ -716,15 +716,18 @@ if (pdf) {
                                            "# of Relocations Removed"),
                format = "latex",
                booktabs = TRUE,
-               caption = 'Table summarizing the results of the data quality checking') %>% 
+               caption = 'Table summarizing the results of the data quality \
+               checking') %>% 
     kableExtra::kable_styling(latex_options = "hold_position")
-} else {
+} else if (html) {
   knitr::kable(summaryTable, col.names = c("Quality Check",
                                            "# of Individuals Flagged",
                                            "# of Relocations Flagged",
                                            "# of Relocations Removed"),
+               format = "html",
                caption = 'Table summarizing the results of the data quality \
-               checking')
+               checking') %>% 
+    kableExtra::kable_styling(position = 'center')
 }
 
 
