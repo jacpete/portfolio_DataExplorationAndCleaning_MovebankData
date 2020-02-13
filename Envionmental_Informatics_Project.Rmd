@@ -7,6 +7,9 @@ csl: ecosphere-doi.csl
 
 #Latex
 urlcolor: blue
+linkcolor: blue
+header_includes:
+  - \floatplacement{figure}{H}
 
 #blogdown_html_page
 slug: exploring-movebank-barnacle-geese
@@ -248,30 +251,26 @@ This data was downloaded in csv format and includes the following data:
 
 \
 
-test plot 1 ref with Fig. \@ref(fig:Plot-Individuals-Per-Study-Region) and hopefully it works
-
 # Graphical Analysis: {-}
 __*Graphical Analysis Methods*__
 
 As not a lot of information was included in the original data set, I created a few new columns for the dataset as noted in the list above.
 This included splitting the data into movement tracts for each individual and calculating time per step and distance moved per step, as well as splitting the data up into different time periods for ease during graphical analysis.
-First,  I identified the distribution of individuals across the study regions (\hyperlink{Plot-Individuals-Per-Study-Region}{{\color{blue}{\underline{`r figNum("Plot-Individuals-Per-Study-Region", display = "cite")`}}}}).
-I then mapped the points to see where exactly the birds from the different study regions were located and look for spatial outliers (\hyperlink{Plot-Spatial-Map}{{\color{blue}{\underline{`r figNum("Plot-Spatial-Map", display = "cite")`}}}}). Next I explored the distribution of movement records among individuals and study regions (\hyperlink{Plot-Individual-Point-Distribution}{{\color{blue}{\underline{`r figNum("Plot-Individual-Point-Distribution", display = "cite")`}}}}). This would help identify individuals that had a lot less relocations as well as the variation in the number of relocations gathered between study regions.
-I also plotted the distribution of the amount of time between consecutive points for each individual (\hyperlink{Plot-Time-Between-Points-Indiv}{{\color{blue}{\underline{`r figNum("Plot-Time-Between-Points-Indiv", display = "cite")`}}}}). Large gaps in time between successive points would make the data less useful and such gaps should be removed in further analyses.
+First,  I identified the distribution of individuals across the study regions (Fig. \@ref(fig:Plot-Individuals-Per-Study-Region)).
+I then mapped the points to see where exactly the birds from the different study regions were located and look for spatial outliers (Fig. \@ref(fig:Plot-Spatial-Map)). Next I explored the distribution of movement records among individuals and study regions (Fig. \@ref(fig:Plot-Individual-Point-Distribution)). This would help identify individuals that had a lot less relocations as well as the variation in the number of relocations gathered between study regions.
+I also plotted the distribution of the amount of time between consecutive points for each individual (Fig. \@ref(fig:Plot-Time-Between-Points-Indiv)). Large gaps in time between successive points would make the data less useful and such gaps should be removed in further analyses.
 I was hoping to get fairly continuous data of year round movement in order to calculate both summer and winter home range sizes and estimate differences in step length during migration and within home ranges.
-To check for this, I used boxplots to plot the standardized distance over time by each month in the entire time series (\hyperlink{Plot-Dist-Traveled-Over-Time}{{\color{blue}{\underline{`r figNum("Plot-Dist-Traveled-Over-Time", display = "cite")`}}}}).
+To check for this, I used boxplots to plot the standardized distance over time by each month in the entire time series (Fig. \@ref(fig:Plot-Dist-Traveled-Over-Time)).
 This not only helped identify possible variability at certain times of the year, but also time periods that only had data from certain study areas.
-The patterns identifying the distribution of points across time and study regions were summarized best in the final two graphs that plot the count of points occurring in the years of the study and across individual months (Figs. \hyperlink{Count-of-points-per-year}{{\color{blue}{\underline{`r figNum("Count-of-points-per-year", display = "num")`}}}} and \hyperlink{Count-of-points-per-month}{{\color{blue}{\underline{`r figNum("Count-of-points-per-month", display = "num")`}}}} respectively).
-Because there is a noticeable lack of points recorded during the winter months (\hyperlink{Count-of-points-per-month}{{\color{blue}{\underline{`r figNum("Count-of-points-per-month", display = "cite")`}}}}), I will only be estimating home ranges in the summer breeding months.
+The patterns identifying the distribution of points across time and study regions were summarized best in the final two graphs that plot the count of points occurring in the years of the study and across individual months (Figs. \@ref(fig:Count-of-points-per-year) and \@ref(fig:Count-of-points-per-month) respectively).
+Because there is a noticeable lack of points recorded during the winter months (Fig. \@ref(fig:Count-of-points-per-month)), I will only be estimating home ranges in the summer breeding months.
 
 \
 \
 
 
 
-\newpage
-\hypertarget{Plot-Individuals-Per-Study-Region}{{\color{blue}{}}}
-```{r Plot-Individuals-Per-Study-Region, warning=F, results='hide', fig.align='center'}
+```{r Plot-Individuals-Per-Study-Region, warning=F, results='hide', fig.align='center', fig.cap="Distribution of individuals among study regions"}
 #Add palatte with colorblind friendly colors
 cbColors <- c("#E69F00", "#009E73", "#0072B2")
 
@@ -296,15 +295,8 @@ dataFull %>% group_by(studyArea) %>% # group by study area and summarise
     guides(fill=guide_legend(title="Study Area"))
 ```
 
-```{r, echo=FALSE, results="asis"}
-jpfxns2::adaptiveCenterCaption(chunckName="Plot-Individuals-Per-Study-Region",
-                               caption = "Distribution of individuals among \
-                               study regions", capFxn = "figNum")
-```
 
-\newpage
-\hypertarget{Plot-Spatial-Map}{{\color{blue}{}}}
-```{r Plot-Spatial-Map, warning=FALSE, message=FALSE, fig.align='center', cache=TRUE}
+```{r Plot-Spatial-Map, warning=FALSE, message=FALSE, fig.align='center', cache=TRUE, fig.cap="Distribution of movement data across all study regions"}
 #Plot map of locations of movements by sub-population
 distMap <- tm_shape(worldMap, bbox = bb(sfFull, width = 1.7,
                                         height = 1.25, relative = T)) +
@@ -327,15 +319,7 @@ distMap <- tm_shape(worldMap, bbox = bb(sfFull, width = 1.7,
 distMap
 ```
 
-```{r, echo=FALSE, results="asis"}
-jpfxns2::adaptiveCenterCaption(chunckName="Plot-Spatial-Map",
-                               caption = "Distribution of movement data across \
-                               all study regions", capFxn = "figNum")
-```
-
-\newpage
-\hypertarget{Plot-Individual-Point-Distribution}{{\color{blue}{}}}
-```{r Plot-Individual-Point-Distribution, warning=F, fig.align='center'}
+```{r Plot-Individual-Point-Distribution, warning=F, fig.align='center', fig.cap="Distribution of movement relocations among individuals and study regions"}
 # bar plot of number of points per individual with a factor of study area
 dataFull %>% group_by(`individual-local-identifier`, studyArea) %>%
   summarise(indivCount = n()) %>%
@@ -358,16 +342,7 @@ dataFull %>% group_by(`individual-local-identifier`, studyArea) %>%
   scale_fill_manual(values=cbColors)
 ```
 
-```{r, echo=FALSE, results="asis"}
-jpfxns2::adaptiveCenterCaption(chunckName="Plot-Individual-Point-Distribution",
-                               caption = "Distribution of movement relocations \
-                               among individuals and study regions",
-                               capFxn = "figNum")
-```
-
-\newpage
-\hypertarget{Plot-Time-Between-Points-Indiv}{{\color{blue}{}}}
-```{r Plot-Time-Between-Points-Indiv, warning=FALSE, fig.height=6, fig.align='center'}
+```{r Plot-Time-Between-Points-Indiv, warning=FALSE, fig.height=6, fig.align='center', fig.cap="Distribution of the length of time between successive relocations on bird data by individuals and study regions"}
 # distribution of length of time we have on bird data by individuals
 plot1 <- ggplot(data = dataFull[!is.na(dataFull$hours), ],
        mapping = aes(x = factor(`individual-local-identifier`), y = hours,
@@ -414,17 +389,7 @@ grid.newpage()
 grid.draw(mainPlot)
 ```
 
-```{r, echo=FALSE, results="asis"}
-jpfxns2::adaptiveCenterCaption(chunckName="Plot-Time-Between-Points-Indiv",
-                               caption = "Distribution of the length of time \
-                               between successive relocations on bird data by \
-                               individuals and study regions",
-                               capFxn = "figNum")
-```
-
-\newpage
-\hypertarget{Plot-Dist-Traveled-Over-Time}{{\color{blue}{}}}
-```{r Plot-Dist-Traveled-Over-Time, warning=FALSE, fig.height=6, fig.align='center'}
+```{r Plot-Dist-Traveled-Over-Time, warning=FALSE, fig.height=6, fig.align='center', fig.cap="Distribution of distance traveled, standardized by an hour, during each movement across time"}
 # Plot the distance traveled among months seperated by the study regions
 
 # ggplot(dataFull, aes(x = factor(monthFloor), y = dist_hour,
@@ -489,16 +454,8 @@ grid.draw(mainPlot)
 
 ```
 
-```{r, echo=FALSE, results="asis"}
-jpfxns2::adaptiveCenterCaption(chunckName="Plot-Dist-Traveled-Over-Time",
-                               caption = "Distribution of distance traveled, \
-                               standardized by an hour, during each movement \
-                               across time", capFxn = "figNum")
-```
 
-\newpage
-\hypertarget{Count-of-points-per-year}{{\color{blue}{}}}
-```{r Count-of-points-per-year, echo=FALSE, warning=F, message=FALSE, fig.align='center'}
+```{r Count-of-points-per-year, echo=FALSE, warning=F, message=FALSE, fig.align='center', fig.cap="Count of points occurring in the different years of the studies"}
 # Distribution of Points among years with study area as a factor
 
 #First to make sure all year-studyArea combinations are represented by
@@ -538,16 +495,8 @@ tidyr::expand_grid(year = levels(dataYearSum$year),
 
 ```
 
-```{r, echo=FALSE, results="asis"}
-jpfxns2::adaptiveCenterCaption(chunckName="Count-of-points-per-year",
-                               caption = "Count of points occurring in the \
-                               different years of the studies",
-                               capFxn = "figNum")
-```
 
-\newpage
-\hypertarget{Count-of-points-per-month}{{\color{blue}{}}}
-```{r Count-of-points-per-month, echo=FALSE, warning=F, message=FALSE, fig.align='center'}
+```{r Count-of-points-per-month, echo=FALSE, warning=F, message=FALSE, fig.align='center', fig.cap="Count of points occurring in the different months of the year"}
 
 #First to make sure all month-studyArea combinations are represented by
 #  at least an NA
@@ -587,16 +536,9 @@ tidyr::expand_grid(month = levels(dataMonthSum$month),
 
 ```
 
-```{r, echo=FALSE, results="asis"}
-jpfxns2::adaptiveCenterCaption(chunckName="Count-of-points-per-month",
-                               caption = "Count of points occurring in the \
-                               different months of the year", capFxn = "figNum")
-```
 
 
-
-
-
+\newpage
 # Data Quality Checking {-}
 __*Data Quality Checking Methods*__
 
@@ -624,7 +566,7 @@ lonely75kmIndiv <-
 sfQualityCheck$lonelySpatialFlag[lonely75kmID] <- TRUE
 ```
 
-After completing the graphical data analysis, I found that the spatial data visually seemed to be consistent with no gross errors or GPS points way outside of the study areas (\hyperlink{Plot-Spatial-Map}{{\color{blue}{\underline{`r figNum("Plot-Spatial-Map", display = "cite")`}}}}). This was likely influenced by the data quality checking standards required for submission to the MoveBank database. Despite this, we ran a nearest neighbor analysis to flag odd points. If a point was found to be greater than 75 km from its nearest point, it was flagged for closer inspection. This check ended up providing a few flagged points (\hyperlink{Draw-Summary-Table}{{\color{blue}{\underline{`r TabNum("Draw-Summary-Table", display = "cite")`}}}}), but after examining them individually, it was determined that they were just from individuals that made long movements in a timestep and weren't that close spatially to the other tagged individuals.
+After completing the graphical data analysis, I found that the spatial data visually seemed to be consistent with no gross errors or GPS points way outside of the study areas (Fig. \@ref(fig:Plot-Spatial-Map)). This was likely influenced by the data quality checking standards required for submission to the MoveBank database. Despite this, we ran a nearest neighbor analysis to flag odd points. If a point was found to be greater than 75 km from its nearest point, it was flagged for closer inspection. This check ended up providing a few flagged points (Table \@ref(tab:Draw-Summary-Table)), but after examining them individually, it was determined that they were just from individuals that made long movements in a timestep and weren't that close spatially to the other tagged individuals.
 
 ```{r Check-for-Long-Distance-Movements, warning=FALSE}
 #Create columns for second check
@@ -684,7 +626,7 @@ sfQualityCheck$lowDataRM[
   which(sfQualityCheck$`individual-local-identifier` %in% lowDataIndiv)] <- TRUE
 ```
 
-During the graphical analysis, we also found that there was one individual in particular (individual ID 78040) that had a very low number of relocations, especially in comparison to other individuals in the study (\hyperlink{Plot-Individual-Point-Distribution}{{\color{blue}{\underline{`r figNum("Plot-Individual-Point-Distribution", display = "cite")`}}}}). This could be indicative of either a failed GPS transmitter, or an individual that suffered from capture myopathy and died quickly. To avoid distorting our dataset with an individual that contributed very little data, all individuals with less than 100 points were removed from the dataset during this data quality check.
+During the graphical analysis, we also found that there was one individual in particular (individual ID 78040) that had a very low number of relocations, especially in comparison to other individuals in the study (Fig. \@ref(fig:Plot-Individual-Point-Distribution)). This could be indicative of either a failed GPS transmitter, or an individual that suffered from capture myopathy and died quickly. To avoid distorting our dataset with an individual that contributed very little data, all individuals with less than 100 points were removed from the dataset during this data quality check.
 
 ```{r Check-for-Hours-Between-Movements, warning=FALSE}
 #Create columns for hours pers step check
@@ -712,14 +654,13 @@ sfQualityCheck$hoursRM[hrsPointsID] <- TRUE
 ```
 
 
-Most of the inconsistencies identified within the dataset in the exploratory analysis seemed to be related with the temporal continuation within the dataset. The Barents Sea data had the most variation in the spread of hours between consecutive points (\hyperlink{Plot-Time-Between-Points-Indiv}{{\color{blue}{\underline{`r figNum("Plot-Time-Between-Points-Indiv", display = "cite")`}}}}). While the other study regions had an average of 2 hour timesteps, Barents Sea data logged a lot data on different temporal scales. Patterns I noticed while searching through the data included a 5 hour period and a 19 hour period daily and a 3-3-3-15 hour schedule daily. This will limit some analyses that can be done with the Barents Sea data. Despite this, all regions had some large outliers in in times between GPS fixes that need to be flagged and dealt with. For this check, I flagged all points that had greater than 48 hours between the GPS fixes. This check will be useful when deciding which points to remove from the distance per hour check. I expected to get a lot of flags during this check and I will have to look at where these breaks occur and if there is a pattern there. GPS transmitters could be programmed to take less points during certain seasons or it could just be an error with the transmitter in communicating with the satellites. To use this data I will likely have to separate the data into bursts of movements around these long periods of time. After examining the flagged data, I resolved to remove all of the flagged points in this check as non-continuous bursts shouldn't impact results involving home range and spatial displacement analyses.
+Most of the inconsistencies identified within the dataset in the exploratory analysis seemed to be related with the temporal continuation within the dataset. The Barents Sea data had the most variation in the spread of hours between consecutive points (Fig. \@ref(fig:Plot-Time-Between-Points-Indiv)). While the other study regions had an average of 2 hour timesteps, Barents Sea data logged a lot data on different temporal scales. Patterns I noticed while searching through the data included a 5 hour period and a 19 hour period daily and a 3-3-3-15 hour schedule daily. This will limit some analyses that can be done with the Barents Sea data. Despite this, all regions had some large outliers in in times between GPS fixes that need to be flagged and dealt with. For this check, I flagged all points that had greater than 48 hours between the GPS fixes. This check will be useful when deciding which points to remove from the distance per hour check. I expected to get a lot of flags during this check and I will have to look at where these breaks occur and if there is a pattern there. GPS transmitters could be programmed to take less points during certain seasons or it could just be an error with the transmitter in communicating with the satellites. To use this data I will likely have to separate the data into bursts of movements around these long periods of time. After examining the flagged data, I resolved to remove all of the flagged points in this check as non-continuous bursts shouldn't impact results involving home range and spatial displacement analyses.
 
 
 \
 
 
 
-\hypertarget{Draw-Summary-Table}{{\color{blue}{}}}
 ```{r Draw-Summary-Table, results='asis'}
 
 # Create Final Flag and RM column and count affected individuals
@@ -766,17 +707,30 @@ summaryTable <- tibble("Check" = "Totals",
 
 
 options(knitr.kable.NA = 'TBD')
-knitr::kable(summaryTable, col.names = c("Quality Check",
-                                         "# of Individuals Flagged",
-                                         "# of Relocations Flagged",
-                                         "# of Relocations Removed"))
+
+
+if (pdf) {
+  knitr::kable(summaryTable, col.names = c("Quality Check",
+                                           "# of Individuals Flagged",
+                                           "# of Relocations Flagged",
+                                           "# of Relocations Removed"),
+               format = "latex",
+               booktabs = TRUE,
+               caption = 'Table summarizing the results of the data quality checking') %>% 
+    kableExtra::kable_styling(latex_options = "hold_position")
+} else {
+  knitr::kable(summaryTable, col.names = c("Quality Check",
+                                           "# of Individuals Flagged",
+                                           "# of Relocations Flagged",
+                                           "# of Relocations Removed"),
+               caption = 'Table summarizing the results of the data quality \
+               checking')
+}
+
+
 ```
 
-```{r results="asis"}
-jpfxns2::adaptiveCenterCaption(chunckName="Draw-Summary-Table",
-                               caption = "Table summarizing the results of the \
-                               data quality checking", capFxn = "TabNum")
-```
+
 
 
 
@@ -903,7 +857,7 @@ For my analysis, I wanted to test for differences in the average displacement be
 To calculate displacement distance I created a nearest neighbor matrix using the 'FNN' package in R for each individual across all of their relocations and recorded the max distance between any two points.
 I then ran a one-way ANOVA across the three sub-populations and used a post-hoc Tukey test to examine pairwise differences in displacement.
 
-For home range analysis, I only focused on the summer breeding season as there was a lack of data during the winter months  (\hyperlink{Count-of-points-per-month}{{\color{blue}{\underline{`r figNum("Count-of-points-per-month", display = "cite")`}}}}).
+For home range analysis, I only focused on the summer breeding season as there was a lack of data during the winter months (Fig. \@ref(fig:Count-of-points-per-month)).
 In order to focus on relocations of birds residing in their summer range (not still migrating) across all sub-populations, I subset the data to only include relocations occurring in June and July.
 I then used the 'adehabitatHR' package in R to calculate the 95% kernel density home range for each individual using their points from the selected time period.
 Similarly to the displacement analysis, I used a one-way ANOVAs using the sub-populations as the grouping factor to examine regional differences in home range size.
@@ -912,17 +866,17 @@ Similarly to the displacement analysis, I used a one-way ANOVAs using the sub-po
 \newpage
 __*Final Data Analysis Results*__
 
-When examining the regional differences between winter and breeding sites using max displacement distance, I found that the only significant regional difference was between the Greenland and Barents Sea populations (p = `r round(dispTukeyPvalues[1], 2)`; \hyperlink{Plot-Displacement-Distance}{{\color{blue}{\underline{`r figNum("Plot-Displacement-Distance", display = "cite")`}}}}).
+When examining the regional differences between winter and breeding sites using max displacement distance, I found that the only significant regional difference was between the Greenland and Barents Sea populations (p = `r round(dispTukeyPvalues[1], 2)`; Fig. \@ref(fig:Plot-Displacement-Distance)).
 Displacement distances ranged from `r round(dispDF$maxDisp[order(dispDF$maxDisp)[1]] / 1000)` to `r round(dispDF$maxDisp[order(dispDF$maxDisp)[length(dispDF$maxDisp)]] / 1000)` km, with the most variation occurring in the Barents Sea subpopulation.
 
 When comparing summer home range sizes, I ended up having to remove another individual from the Barents Sea sup-population because it lacked at least 100 points during the summer breeding months.
-The ANOVA found no significant variation between regions (p > 0.05; \hyperlink{Plot-Home-Range-Size}{{\color{blue}{\underline{`r figNum("Plot-Home-Range-Size", display = "cite")`}}}}).
+The ANOVA found no significant variation between regions (p > 0.05; Fig. \@ref(fig:Plot-Home-Range-Size)).
 The largest variation in home range size occurred in the Svalbard region, while the least occurred in the Greenland subpopulation.
 The home range size varied across study regions from `r round(sfSummerHR95$area[order(sfSummerHR95$area)[1]] * 1000)` square m up to `r round(sfSummerHR95$area[order(sfSummerHR95$area)[length(sfSummerHR95$area)]])`  square km.
 This variation is likely caused by the difference between individuals that were always on the nest when a GPS location was taken and individuals that did not breed that summer.
 
 
-```{r Plot-Displacement-Distance, echo=FALSE, warning=F, fig.align='center'}
+```{r Plot-Displacement-Distance, echo=FALSE, warning=F, fig.align='center', fig.cap="Distribution of maximum displacement distance (km) in barnacle geese between winter and summer ranges across breeding sub-populations"}
 ggplot(dispDF, aes(x = factor(studyArea), y = maxDisp/1000,
                    col = factor(studyArea))) +
   geom_boxplot() +
@@ -941,16 +895,10 @@ ggplot(dispDF, aes(x = factor(studyArea), y = maxDisp/1000,
   theme(legend.position = "none") # remove legend
 ```
 
-```{r results="asis"}
-jpfxns2::adaptiveCenterCaption(chunckName="Plot-Displacement-Distance",
-                               caption = "Distribution of maximum displacement \
-                               distance (km) in barnacle geese between winter \
-                               and summer ranges across breeding \
-                               sub-populations", capFxn = "figNum")
-```
 
 
-```{r Plot-Home-Range-Size, echo=FALSE, warning=F, fig.align='center'}
+
+```{r Plot-Home-Range-Size, echo=FALSE, warning=F, fig.align='center', fig.cap="Distribution of summer home range size ($km^2$) in barnacle geese across breeding sub-populations"}
 ggplot(sfSummerHR95, aes(x = factor(studyArea), y = area,
                          col = factor(studyArea))) +
   geom_boxplot() +
@@ -970,12 +918,7 @@ ggplot(sfSummerHR95, aes(x = factor(studyArea), y = area,
   theme(legend.position = "none") # remove legend
 ```
 
-```{r results="asis"}
-jpfxns2::adaptiveCenterCaption(chunckName="Plot-Home-Range-Size",
-                               caption = "Distribution of summer home range \
-                               size ($km^2$) in barnacle geese across \
-                               breeding sub-populations", capFxn = "figNum")
-```
+
 
 
 
@@ -989,6 +932,7 @@ jpfxns2::adaptiveCenterCaption(chunckName="Plot-Home-Range-Size",
 #                                           ".csv")))
 ```
 
+\newpage
 # Works Cited {-}
 
 ```{r, results="asis", eval = pdf}
@@ -1035,19 +979,23 @@ cat('\\newpage\n# Code Appendix {-}')
 ```{r Filenames, include=FALSE}
 #Options needed to control the Appendix
 RmdName <- knitr::current_input()
+RmdName <- "Envionmental_Informatics_Project.Rmd"
 RfileName <- str_sub(RmdName, end = -3)
 ```
 
 
 ```{r Export-R-File, include=FALSE, eval=includeAppendix}
 knitr::purl(RmdName, documentation = 1)
+# options('formatR.comment' = TRUE)
+# formatR::tidy_file(RfileName, width.cutoff =  80)
 ```
 
 ```{r Add-RMarkdown-Code-Appendix, code = if (file.exists(RfileName)) {readLines(RfileName)}, echo=TRUE, eval=FALSE}
 ```
 
 ```{r Delete-R-File, include=FALSE}
-if (file.exists(RfileName))
+if (file.exists(RfileName)) {
   #Delete file if it exists
   file.remove(RfileName)
+}
 ```
