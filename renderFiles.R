@@ -6,26 +6,23 @@ library(stringr)
 
 file.remove('pdf_document.yaml'); yml_empty() %>% 
   yml_output(bookdown::pdf_document2(toc = FALSE,
-                          extra_dependencies = c('blindtext', 'color'),
-                          keep_md = TRUE,
-                          keep_tex = TRUE)) %>%
+                          extra_dependencies = c('blindtext', 'color'))) %>%
   yml_pluck("output") %>%
   use_yml_file(path = 'pdf_document.yaml', git_ignore = TRUE)
 
-rmarkdown::render(input = 'Envionmental_Informatics_Project.Rmd',
+rmarkdown::render(input = 'Environmental_Informatics_Project.Rmd',
                   output_yaml = 'pdf_document.yaml',
                   params = list(type = "pdf",
-                                appendix = FALSE))
+                                appendix = FALSE)) 
                   
 
 file.remove('blogdown_html_page.yaml'); yml_empty() %>% 
   yml_output(blogdown::html_page(toc = TRUE,
-                                 fig_caption = TRUE,
-                                 keep_md = TRUE)) %>%
+                                 fig_caption = TRUE)) %>%
   yml_pluck("output") %>%
   use_yml_file(path = 'blogdown_html_page.yaml', git_ignore = TRUE)
 
-rmarkdown::render(input = 'Envionmental_Informatics_Project.Rmd',
+rmarkdown::render(input = 'Environmental_Informatics_Project.Rmd',
                   output_yaml = 'blogdown_html_page.yaml',
                   params = list(type = "html",
                                 appendix = TRUE))
@@ -62,8 +59,8 @@ createBlogdownHTML <- function(rmdFile, htmlFile, outputYAML, outputName) {
   readr::write_lines(c(ymlFull,htmlFile), path = outputName)
 }
 
-createBlogdownHTML(rmdFile = "Envionmental_informatics_Project.Rmd",
-                   htmlFile = "Envionmental_informatics_Project.html",
+createBlogdownHTML(rmdFile = "Environmental_informatics_Project.Rmd",
+                   htmlFile = "Environmental_informatics_Project.html",
                    outputYAML = (yml_empty() %>% 
                                    yml_output(blogdown::html_page(toc = TRUE,
                                                                   fig_caption = TRUE))),
