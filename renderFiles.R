@@ -25,11 +25,53 @@ file.remove('blogdown_html_page.yaml'); yml_empty() %>%
 rmarkdown::render(input = 'Environmental_Informatics_Project.Rmd',
                   output_yaml = 'blogdown_html_page.yaml',
                   params = list(type = "html",
-                                appendix = TRUE))
+                                appendix = FALSE))
 
 
+#Created this because YMLthis was handling single taxonomy values in a way that caused errors when Hugo rendered the site
+#if a single taxonomy was like this
+# categories: R
+#instead of:
+# categories: ['R']
+#OR this:
+# categories:
+#   - R
+#I would run into errors rendering the site. YMLthis would defaults to the incorrect behavior even if it read in a YAML formatted correctly.
+forceTaxonomyYML <- function(yml, taxonomies = c("tags", "categories", "library_tags", "authors")) {
+  
+  #Find Which Taxonomies Present
+  taxContain <- names(yml)[which(names(yml) %in% taxonomies)]
+  taxData <- yml[taxContain]
+  
+  #Create Taxonomy String Vector containing a id for each line in the new taxonomy YAML portion
+  taxStrings <-  purrr::map2_chr(names(taxData), taxData, function(taxName, taxVars) {
+    if (length(taxVars) != 0) {
+      taxHead <- paste0(taxName,':\n')
+      taxBody <- purrr::map_chr(taxVars, ~paste0("  - ", .x, "\n"))
+      taxFull <- paste0(c(taxHead,taxBody), collapse = "")
+    } else {
+      taxFull <- paste0(taxName,': []\n')
+    }
+    return(taxFull)
+  }) %>% 
+    paste0(., collapse = "") %>% 
+    stringr::str_split(pattern = "\n") %>% 
+    `[[`(1) %>%  
+    stringi::stri_remove_empty(.) 
+  
+  
+  #Remove old Taxonomy Datach
+  ymlVec <- yml %>% ymlthis::yml_discard(taxContain) %>%
+    capture.output()
+  
+  #Combine base YAML Vector with new taxonomy vector
+  ymlVec <- c(ymlVec[1:(length(ymlVec)-1)], taxStrings)
+  
+  return(ymlVec)
+}
 
-createBlogdownHTML <- function(rmdFile, htmlFile, outputYAML, outputName) {
+
+createBlogdownRmd_from_html <- function(rmdFile, htmlFile, outputYAML, outputName, discard, taxonomies) {
   #Read in RMD File
   rmdFile <- readr::read_lines(rmdFile)
   
@@ -37,18 +79,18 @@ createBlogdownHTML <- function(rmdFile, htmlFile, outputYAML, outputName) {
   ymlIDs <- stringr::str_which(rmdFile, pattern = "---")
   ymlRmd <- rmdFile[(ymlIDs[1]+1):(ymlIDs[2]-1)] 
   
-  #Ensure there is no output section in the YAML, as we are adding our own
-  ymlRmd <- ymlRmd %>% 
+  #Ensure there is no output and params section in the YAML, as we are adding our own
+  ymlRmd <- ymlRmd %>%
     paste0(collapse = "\n") %>% 
     ymlthis::as_yml() %>%  
-    ymlthis::yml_discard("output") %>% 
-    capture.output()
+    ymlthis::yml_discard(discard) %>%
+    forceTaxonomyYML(., taxonomies = taxonomies)
   
   #Get Output YAML
   ymlOutput <- capture.output(outputYAML)
 
   #Combine to the full YAML
-  ymlFull <- c(ymlRmd[1:(length(ymlRmd)-1)], 
+  ymlFull <- c(ymlRmd, 
                ymlOutput[2:length(ymlOutput)],
                c(''))
   
@@ -59,12 +101,16 @@ createBlogdownHTML <- function(rmdFile, htmlFile, outputYAML, outputName) {
   readr::write_lines(c(ymlFull,htmlFile), path = outputName)
 }
 
-createBlogdownHTML(rmdFile = "Environmental_Informatics_Project.Rmd",
+createBlogdownRmd_from_html(rmdFile = "Environmental_Informatics_Project.Rmd",
                    htmlFile = "Environmental_Informatics_Project.html",
                    outputYAML = (yml_empty() %>% 
+                                   yml_params(type = 'html', 
+                                              appendix = FALSE) %>% 
                                    yml_output(blogdown::html_page(toc = TRUE,
                                                                   fig_caption = TRUE))),
-                   outputName = "Environmental_Informatics_Project.html"
+                   outputName = "Environmental_Informatics_ProjectTest.Rmd",
+                   discard = c("output", "params", "bibliography", 'csl', 'urlcolor', 'linkcolor', 'header_includes'),
+                   taxonomies = c("tags", "categories", "library_tags", "authors")
 )
 
 
