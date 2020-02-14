@@ -728,7 +728,7 @@ if (pdf) {
                caption = 'Table summarizing the results of the data quality \
                checking') %>% 
     kableExtra::kable_styling(position = 'center',
-                              bootstrap_options = c("striped", "hover"))
+                              bootstrap_options = c("striped"))
 }
 
 
