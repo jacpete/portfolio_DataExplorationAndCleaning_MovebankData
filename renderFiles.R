@@ -127,7 +127,11 @@ htmlFile <- readr::read_lines(htmlFileName) %>%
 readr::write_lines(htmlFile, path = htmlFileName)
 
 
-
+#now take the html file and copy it to the content folder you want it at
+#it will automatically pull over the content directory it needs
+#rename it from html extension to Rmd (may have to do it twice and ignore warnings)
+#render the site, the content folder will disappear and folders in the static directory with the content will be created
+#to replace with new version delete all files and repeat process
 
 
 
