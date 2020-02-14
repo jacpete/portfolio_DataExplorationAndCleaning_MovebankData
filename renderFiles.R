@@ -71,7 +71,7 @@ forceTaxonomyYML <- function(yml, taxonomies = c("tags", "categories", "library_
 }
 
 
-createBlogdownRmd_from_html <- function(rmdFile, htmlFile, outputYAML, outputName, discard, taxonomies) {
+createBlogdownHtml <- function(rmdFile, htmlFile, outputYAML, outputName, discard, taxonomies) {
   #Read in RMD File
   rmdFile <- readr::read_lines(rmdFile)
   
@@ -97,23 +97,34 @@ createBlogdownRmd_from_html <- function(rmdFile, htmlFile, outputYAML, outputNam
   #Read in HTML file
   htmlFile <- readr::read_lines(htmlFile)
   
-  #Write New HTML fil
+  #Write New HTML
   readr::write_lines(c(ymlFull,htmlFile), path = outputName)
 }
 
-createBlogdownRmd_from_html(rmdFile = "Environmental_Informatics_Project.Rmd",
+createBlogdownHtml(rmdFile = "Environmental_Informatics_Project.Rmd",
                    htmlFile = "Environmental_Informatics_Project.html",
                    outputYAML = (yml_empty() %>% 
                                    yml_params(type = 'html', 
                                               appendix = FALSE) %>% 
                                    yml_output(blogdown::html_page(toc = TRUE,
                                                                   fig_caption = TRUE))),
-                   outputName = "Environmental_Informatics_ProjectTest.Rmd",
+                   outputName = "Environmental_Informatics_Project.html",
                    discard = c("output", "params", "bibliography", 'csl', 'urlcolor', 'linkcolor', 'header_includes'),
                    taxonomies = c("tags", "categories", "library_tags", "authors")
 )
 
 
+
+
+#Fix hashtags in table so the markdown doesn't render it as a heading
+htmlFileName <- "Environmental_Informatics_Project.html"
+
+#Read in HTML file
+htmlFile <- readr::read_lines(htmlFileName) %>% 
+  stringr::str_replace(pattern = '^#[:blank:]+', '&#35; ')
+
+#Write New HTML
+readr::write_lines(htmlFile, path = htmlFileName)
 
 
 
