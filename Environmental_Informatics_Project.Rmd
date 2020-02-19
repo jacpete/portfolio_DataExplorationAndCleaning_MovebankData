@@ -233,20 +233,20 @@ This data was downloaded in csv format and includes the following data:
 
 |     *Useful data included in all study regions as part of the original datasets:*
 
-*     `event-id` unique identifier for each movement event
-*     `timestamp` the date and time the event was recorded in UTC
-*     `location-long` longitude in decimal degrees (Datum: WGS84)
-*     `location-lat` latitude in decimal degrees (Datum: WGS84)
-*     `individual-local-identifier` unique identifier for individual
+* **event-id** unique identifier for each movement event
+* **timestamp** the date and time the event was recorded in UTC
+* **location-long** longitude in decimal degrees (Datum: WGS84)
+* **location-lat** latitude in decimal degrees (Datum: WGS84)
+* **individual-local-identifier** unique identifier for individual
 
 |     *Created as part of exploratory analysis using existing variables:*
 
-*     `hours` hours between timesteps
-*     `dist` distance traveled during a timestep (in meters)
-*     `dist_hour` distance traveled divided by the hours between timesteps (m/hr)
-*     `month` month data was collected in
-*     `year` year data was collected in
-*     `monthFloor` month and year combination that the data was collected in
+* **hours** hours between timesteps
+* **dist** distance traveled during a timestep (in meters)
+* **dist_hour** distance traveled divided by the hours between timesteps (m/hr)
+* **month** month data was collected in
+* **year** year data was collected in
+* **monthFloor** month and year combination that the data was collected in
 
 
 \
@@ -716,15 +716,19 @@ if (pdf) {
                                            "# of Relocations Removed"),
                format = "latex",
                booktabs = TRUE,
-               caption = 'Table summarizing the results of the data quality checking') %>% 
+               caption = 'Table summarizing the results of the data quality \
+               checking') %>% 
     kableExtra::kable_styling(latex_options = "hold_position")
-} else {
+} else if (html) {
   knitr::kable(summaryTable, col.names = c("Quality Check",
                                            "# of Individuals Flagged",
                                            "# of Relocations Flagged",
                                            "# of Relocations Removed"),
+               format = "html",
                caption = 'Table summarizing the results of the data quality \
-               checking')
+               checking') %>% 
+    kableExtra::kable_styling(position = 'center',
+                              bootstrap_options = c("striped"))
 }
 
 
