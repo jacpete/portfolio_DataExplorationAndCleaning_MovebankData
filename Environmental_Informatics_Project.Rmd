@@ -169,8 +169,11 @@ sfFull <- st_as_sf(x = dataFull, coords = c('location-long','location-lat'),
 ###Create and add track details to the full datasets
 
 # Create xy columns in meters using the North Pole Azimuthal Equidistant
-#  transformation
-sfFullEurope <- sfFull %>% st_transform(crs = 102016) %>%
+#  transformation 102016
+NpoleAzimEquidist <- 
+  "+proj=aeqd +lat_0=90 +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m no_defs"
+sfFullEurope <- sfFull %>% 
+  st_transform(crs = NpoleAzimEquidist) %>%
   jpfxns2::sf_XYtoCols(.)
 
 # Create and add trajectory details between steps to the data
@@ -547,7 +550,7 @@ __*Data Quality Checking Methods*__
 #Create qualtiy checking table and add columns for the first check
 # Ensure projection is equidistant and can use a euclidean nearest
 # neighbor algorithm (North Pole Azimuthal Equidistant projection)
-sfQualityCheck <- sfFullEurope %>% st_transform(crs = 102016) %>%
+sfQualityCheck <- sfFullEurope %>% st_transform(crs = NpoleAzimEquidist) %>%
   mutate(lonelySpatialFlag = FALSE,
          lonelySpatialRM = FALSE)
 
@@ -746,7 +749,7 @@ __*Final Data Analysis Methods*__
 
 ```{r Calculate-Displacement-Distance, warning=F, cache=TRUE, cache.lazy=FALSE, include=FALSE}
 # find max displacement distance traveled by indidividuals
-dispDF <- sfGood %>% st_transform(crs = 102016) %>% #reproject to equidistant
+dispDF <- sfGood %>% st_transform(crs = NpoleAzimEquidist) %>% #reproject to equidistant
                                                     # projection (North Pole
                                                     # Azimuthal Equidistant)
   group_by(studyArea, `individual-local-identifier`) %>%
