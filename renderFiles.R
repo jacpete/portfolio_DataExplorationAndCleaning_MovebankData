@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 library(ymlthis)
 library(markdown)
 library(readr)
@@ -78,7 +77,6 @@ createBlogdownHTML(rmdFile = "Environmental_Informatics_Project.Rmd",
 
 
 
-=======
 library(ymlthis)
 library(markdown)
 library(readr)
@@ -215,8 +213,3 @@ readr::write_lines(htmlFile, path = htmlFileName)
 #to replace with new version delete all files and repeat process
 
 
-
-
-
-
->>>>>>> 62506965145ce657d169877a908cfe8c2043775c
