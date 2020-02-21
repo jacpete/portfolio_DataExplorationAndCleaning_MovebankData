@@ -300,7 +300,7 @@ dataFull %>% group_by(studyArea) %>% # group by study area and summarise
 ```
 
 
-```{r Plot-Spatial-Map, warning=FALSE, message=FALSE, fig.align='center', cache=TRUE, fig.cap="Distribution of movement data across all study regions"}
+```{r Plot-Spatial-Map, warning=FALSE, message=FALSE, fig.align='center', fig.cap="Distribution of movement data across all study regions"}
 #Plot map of locations of movements by sub-population
 distMap <- tm_shape(worldMap, bbox = bb(sfFull, width = 1.7,
                                         height = 1.25, relative = T)) +
