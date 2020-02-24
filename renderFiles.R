@@ -105,10 +105,10 @@ createBlogdownHtml <- function(rmdFile, htmlFile, outputYAML, outputName, discar
 
 createBlogdownHtml(rmdFile = "Environmental_Informatics_Project.Rmd",
                    htmlFile = "Environmental_Informatics_Project.html",
-                   outputYAML = (yml_empty() %>% 
-                                   yml_params(type = 'html', 
-                                              appendix = FALSE) %>% 
-                                   yml_output(blogdown::html_page(toc = TRUE,
+                   outputYAML = (ymlthis::yml_empty() %>% 
+                                   ymlthis::yml_params(type = 'html', 
+                                                       appendix = FALSE) %>% 
+                                   ymlthis::yml_output(blogdown::html_page(toc = TRUE,
                                                                   fig_caption = TRUE))),
                    outputName = "Environmental_Informatics_Project.html",
                    discard = c("output", "params", "bibliography", 'csl', 'urlcolor', 'linkcolor', 'header_includes'),
