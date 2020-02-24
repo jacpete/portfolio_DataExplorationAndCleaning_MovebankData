@@ -319,7 +319,11 @@ distMap <- tm_shape(worldMap, bbox = bb(sfFull, width = 1.7,
             legend.bg.color = "#fcefd2") +
   tm_compass(type = "arrow", position = c(0.165, 0.15)) +
   tm_scale_bar(breaks = c(0,500,1000,1500), text.size = .8, position = c(0.09,0.0))
-# breaks = c(0,500,1000,1500),
+
+#Save for project featuredFile on website
+distMapWebsite <- distMap + tm_layout(main.title = "")
+tmap_save(distMapWebsite, filename = "featured.png")
+
 distMap
 ```
 
