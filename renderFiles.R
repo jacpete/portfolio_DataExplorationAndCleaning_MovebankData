@@ -1,5 +1,3 @@
-
-
 library(ymlthis)
 library(markdown)
 library(readr)
@@ -39,7 +37,7 @@ rmarkdown::render(input = 'Environmental_Informatics_Project.Rmd',
 # categories:
 #   - R
 #I would run into errors rendering the site. YMLthis would defaults to the incorrect behavior even if it read in a YAML formatted correctly.
-forceTaxonomyYML <- function(yml, taxonomies = c("tags", "categories", "library_tags", "authors")) {
+forceTaxonomyYML <- function(yml, taxonomies = c("tags", "categories", "library_tags", "authors", "projects")) {
   
   #Find Which Taxonomies Present
   taxContain <- names(yml)[which(names(yml) %in% taxonomies)]
@@ -112,7 +110,7 @@ createBlogdownHtml(rmdFile = "Environmental_Informatics_Project.Rmd",
                                                                   fig_caption = TRUE))),
                    outputName = "Environmental_Informatics_Project.html",
                    discard = c("output", "params", "bibliography", 'csl', 'urlcolor', 'linkcolor', 'header_includes'),
-                   taxonomies = c("tags", "categories", "library_tags", "authors")
+                   taxonomies = c("tags", "categories", "library_tags", "authors", "projects")
 )
 
 
